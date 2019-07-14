@@ -25,7 +25,7 @@ function RTN:OnEvent(event, ...)
 	elseif event == "ADDON_LOADED" then
 		RTN:OnAddonLoaded()
 	elseif event == "PLAYER_LOGOUT" then
-		RTN:OnPlayerLogout()
+		RTN:OnPlayerLogout()	
 	end
 end
 
@@ -47,8 +47,6 @@ function RTN:ChangeShard(old_zone_uid, new_zone_uid)
 end
 
 function RTN:CheckForShardChange(zone_uid)
-	local has_changed = false
-
 	if RTN.current_shard_id ~= zone_uid and zone_uid ~= nil then
 		print("<RTN> Moving to shard", (zone_uid + 42)..".")
 		RTN:UpdateShardNumber(zone_uid)
@@ -56,17 +54,13 @@ function RTN:CheckForShardChange(zone_uid)
 		if RTN.current_shard_id == nil then
 			-- Register yourRTN for the given shard.
 			RTN:RegisterArrival(zone_uid)
-			has_changed = true
 		else
 			-- Move from one shard to another.
 			RTN:ChangeShard(RTN.current_shard_id, zone_uid)
-			has_changed = true
 		end
 		
 		RTN.current_shard_id = zone_uid
 	end
-	
-	return has_changed
 end
 
 function RTN:OnTargetChanged(...)
@@ -135,15 +129,12 @@ function RTN:OnCombatLogEvent(...)
 	-- The event itRTN does not have a payload (8.0 change). Use CombatLogGetCurrentEventInfo() instead.
 	local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = CombatLogGetCurrentEventInfo()
 	local unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid = strsplit("-", destGUID);
-	local unittype2, _, _, _, zone_uid2, _, _ = strsplit("-", sourceGUID);
 	npc_id = tonumber(npc_id)
 	
 	-- We can always check for a shard change.
 	-- We only take fights between creatures, since they seem to be the only reliable option.
-	if unittype == "Creature" and unittype2 == "Creature" and zone_uid == zone_uid2 then
-		if RTN:CheckForShardChange(zone_uid) then
-			print(sourceGUID, destGUID)
-		end
+	if unittype == "Creature" and not RTN.banned_NPC_ids[npc_id] then
+		RTN:CheckForShardChange(zone_uid)
 	end	
 		
 	if subevent == "UNIT_DIED" then
@@ -161,7 +152,7 @@ function RTN:OnZoneTransition()
 	local zone_id = C_Map.GetBestMapForUnit("player")
 		
 	if RTN.target_zones[zone_id] and not RTN.target_zones[RTN.last_zone_id] then
-		-- Enable the Nazjatar rares.
+		-- Enable the Mechagon rares.
 		RTN:StartInterface()
 		
 	elseif not RTN.target_zones[zone_id] then
@@ -205,6 +196,10 @@ function RTN:OnVignetteMinimapUpdated(...)
 			RTN:RegisterEntityDeath(RTN.current_shard_id, RTN.reported_vignettes[vignetteGUID])
 		end
 	else
+		if vignetteInfo == nil then
+			return
+		end
+	
 		-- Report the entity.
 		local unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid = strsplit("-", vignetteInfo.objectGUID);
 		local npc_id = tonumber(npc_id)
@@ -313,3 +308,4 @@ RTN:RegisterEvent("ZONE_CHANGED")
 RTN:RegisterEvent("PLAYER_ENTERING_WORLD")
 RTN:RegisterEvent("ADDON_LOADED")
 RTN:RegisterEvent("PLAYER_LOGOUT")
+

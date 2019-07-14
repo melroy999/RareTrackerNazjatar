@@ -10,6 +10,16 @@ local RTN = data.RTN
 RTN.target_zones = {}
 RTN.target_zones[1355] = true
 
+-- NPCs that are banned during shard detection.
+-- Player followers sometimes spawn with the wrong zone id.
+RTN.banned_NPC_ids = {}
+RTN.banned_NPC_ids[154297] = true
+RTN.banned_NPC_ids[150202] = true
+RTN.banned_NPC_ids[154304] = true
+RTN.banned_NPC_ids[152108] = true
+RTN.banned_NPC_ids[151300] = true
+RTN.banned_NPC_ids[151310] = true
+
 -- Simulate a set data structure for efficient existence lookups.
 function Set (list)
   local set = {}

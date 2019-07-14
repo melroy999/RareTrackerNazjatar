@@ -18,6 +18,10 @@ local reported_version_mismatch = false
 -- The name of the current channel.
 local channel_name = nil
 
+-- The last time the health of an entity has been reported.
+-- Used for limiting the number of messages sent to the channel.
+RTN.last_health_report = {}
+
 -- ####################################################################
 -- ##                        Helper Functions                        ##
 -- ####################################################################
@@ -26,7 +30,7 @@ RTN.last_message_sent = 0
 -- A function that acts as a rate limiter for channel messages.
 function RTN:SendRateLimitedAddonMessage(message, target, target_id)
 	-- We only allow one message to be sent every ~4 seconds.
-	if RTN.last_message_sent + 4 < time() then
+	if time() - RTN.last_message_sent > 4 then
 		C_ChatInfo.SendAddonMessage("RTN", message, target, target_id)
 		RTN.last_message_sent = time()
 	end
@@ -88,14 +92,38 @@ function RTN:RegisterArrival(shard_id)
 
 	RTN.channel_name = "RTN"..shard_id
 	
+	local is_in_channel = false
+	if select(1, GetChannelName(RTN.channel_name)) ~= 0 then
+		is_in_channel = true
+	end
+	
 	-- Join the appropriate channel.
 	JoinTemporaryChannel(RTN.channel_name)
 
 	-- Announce to the others that you have arrived.
 	RTN.arrival_register_time = time()
 	RTN.rare_table_updated = false
-	
-	C_ChatInfo.SendAddonMessage("RTN", "A-"..shard_id.."-"..RTN.version..":"..RTN.arrival_register_time, "CHANNEL", select(1, GetChannelName(RTN.channel_name)))
+		
+	if not is_in_channel then
+		-- If we are not in the channel yet, we cannot immediately send a message.
+		-- Wait for a few seconds and send the arrival announcement message.
+		local frame = CreateFrame("Frame", "RTN.message_delay_frame", self)
+		frame.start_time = time()
+		frame:SetScript("OnUpdate", 
+			function()
+				if time() - frame.start_time > 3 then
+					print("<RTN> Requesting rare kill data for shard "..(shard_id + 42)..".")
+					C_ChatInfo.SendAddonMessage("RTN", "A-"..shard_id.."-"..RTN.version..":"..RTN.arrival_register_time, "CHANNEL", select(1, GetChannelName(RTN.channel_name)))
+					frame:SetScript("OnUpdate", nil)
+					frame:Hide()
+				end
+			end
+		)
+		frame:Show()
+		print("<RTN> Channel joined, requesting rare kill data in 3 seconds.")
+	else
+		C_ChatInfo.SendAddonMessage("RTN", "A-"..shard_id.."-"..RTN.version..":"..RTN.arrival_register_time, "CHANNEL", select(1, GetChannelName(RTN.channel_name)))
+	end	
 end
 
 -- Inform the others that you are still present.
@@ -165,7 +193,9 @@ end
 
 -- Inform the others the health of a specific entity.
 function RTN:RegisterEntityHealth(shard_id, npc_id, spawn_id, percentage)
-	RTN:SendRateLimitedAddonMessage("EH-"..shard_id.."-"..RTN.version..":"..npc_id.."-"..spawn_id.."-"..percentage, "CHANNEL", select(1, GetChannelName(RTN.channel_name)))
+	if not RTN.last_health_report[npc_id] or time() - RTN.last_health_report[npc_id] > 2 then
+		RTN:SendRateLimitedAddonMessage("EH-"..shard_id.."-"..RTN.version..":"..npc_id.."-"..spawn_id.."-"..percentage, "CHANNEL", select(1, GetChannelName(RTN.channel_name)))
+	end
 end
 
 
@@ -211,6 +241,7 @@ function RTN:AcknowledgeEntityHealth(npc_id, spawn_id, percentage)
 	RTN.last_recorded_death[npc_id] = nil
 	RTN.is_alive[npc_id] = time()
 	RTN.current_health[npc_id] = percentage
+	RTN.last_health_report[npc_id] = time()
 	
 	if RTNDB.favorite_rares[npc_id] and not RTN.reported_spawn_uids[spawn_id] then
 		-- Play a sound file.
@@ -220,9 +251,9 @@ function RTN:AcknowledgeEntityHealth(npc_id, spawn_id, percentage)
 end
 
 function RTN:OnChatMessageReceived(player, prefix, shard_id, addon_version, payload)
-
+	
 	if not reported_version_mismatch and RTN.version < addon_version and addon_version ~= 9001 then
-		print("<RTN> Your version or RareTrackerNazjatar is outdated. Please update to the most recent version at the earliest convenience.")
+		print("<RTN> Your version or RareTrackerMechagon is outdated. Please update to the most recent version at the earliest convenience.")
 		reported_version_mismatch = true
 	end
 	

@@ -22,5 +22,5 @@ function CommandHandler(msg, editbox)
 	end
 end
 
-SLASH_RT1 = "/RTN"
+SLASH_RT1 = "/rtm"
 SlashCmdList["RT"] = CommandHandler

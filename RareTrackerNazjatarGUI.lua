@@ -357,7 +357,7 @@ function RTN:InitializeInterface()
 				RTN.reported_vignettes = {}
 				
 				-- Reset the cache.
-				RTNDB.previous_records[shard_id] = nil
+				RTNDB.previous_records[RTN.current_shard_id] = nil
 				
 				-- Re-register your arrival in the shard.
 				RTN:RegisterArrival(RTN.current_shard_id)
