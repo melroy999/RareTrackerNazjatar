@@ -126,7 +126,7 @@ function RTN:OnUnitHealth(unit)
 end
 
 function RTN:OnCombatLogEvent(...)
-	-- The event itRTN does not have a payload (8.0 change). Use CombatLogGetCurrentEventInfo() instead.
+	-- The event does not have a payload (8.0 change). Use CombatLogGetCurrentEventInfo() instead.
 	local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = CombatLogGetCurrentEventInfo()
 	local unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid = strsplit("-", destGUID);
 	npc_id = tonumber(npc_id)
@@ -152,7 +152,7 @@ function RTN:OnZoneTransition()
 	local zone_id = C_Map.GetBestMapForUnit("player")
 		
 	if RTN.target_zones[zone_id] and not RTN.target_zones[RTN.last_zone_id] then
-		-- Enable the Mechagon rares.
+		-- Enable the Nazjatar rares.
 		RTN:StartInterface()
 		
 	elseif not RTN.target_zones[zone_id] then

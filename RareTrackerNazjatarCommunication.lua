@@ -253,7 +253,7 @@ end
 function RTN:OnChatMessageReceived(player, prefix, shard_id, addon_version, payload)
 	
 	if not reported_version_mismatch and RTN.version < addon_version and addon_version ~= 9001 then
-		print("<RTN> Your version or RareTrackerMechagon is outdated. Please update to the most recent version at the earliest convenience.")
+		print("<RTN> Your version or RareTrackerNazjatar is outdated. Please update to the most recent version at the earliest convenience.")
 		reported_version_mismatch = true
 	end
 	
