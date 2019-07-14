@@ -103,28 +103,14 @@ function RTN:RegisterArrival(shard_id)
 		
 	if not is_in_channel then
 		-- Join the appropriate channel.
+		JoinTemporaryChannel(RTN.channel_name)
+	
 		-- We want to avoid overwriting existing channel numbers. So delay the channel join.
 		local frame = CreateFrame("Frame", "RTN.message_delay_frame", self)
 		frame.start_time = time()
 		frame:SetScript("OnUpdate", 
 			function(self)
 				if time() - self.start_time > 2 then
-					JoinTemporaryChannel(RTN.channel_name)
-					print("<RTN> Channel joined, requesting rare kill data in 3 seconds.")
-					self:SetScript("OnUpdate", nil)
-					self:Hide()
-				end
-			end
-		)
-		frame:Show()
-		
-		-- If we are not in the channel yet, we cannot immediately send a message.
-		-- Wait for a few seconds and send the arrival announcement message.
-		local frame = CreateFrame("Frame", "RTN.message_delay_frame", self)
-		frame.start_time = time()
-		frame:SetScript("OnUpdate", 
-			function(self)
-				if time() - self.start_time > 5 then
 					print("<RTN> Requesting rare kill data for shard "..(shard_id + 42)..".")
 					C_ChatInfo.SendAddonMessage("RTN", "A-"..shard_id.."-"..RTN.version..":"..RTN.arrival_register_time, "CHANNEL", select(1, GetChannelName(RTN.channel_name)))
 					self:SetScript("OnUpdate", nil)
