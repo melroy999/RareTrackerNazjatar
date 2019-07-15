@@ -9,8 +9,6 @@ local RTN = data.RTN
 -- Listen to a given set of events and handle them accordingly.
 function RTN:OnEvent(event, ...)
 	if event == "PLAYER_TARGET_CHANGED" then
-		-- Certain players might not have active channels. Unlock the other events if they target something.
-		RTN.chat_frame_loaded = true
 		RTN:OnTargetChanged(...)
 	elseif event == "UNIT_HEALTH" and RTN.chat_frame_loaded then
 		RTN:OnUnitHealth(...)
@@ -18,8 +16,6 @@ function RTN:OnEvent(event, ...)
 		RTN:OnCombatLogEvent(...)
 	elseif event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED" then
 		RTN:OnZoneTransition()
-	elseif event == "CHAT_MSG_CHANNEL" then
-		RTN:OnChatMsgChannel(...)
 	elseif event == "CHAT_MSG_ADDON" then
 		RTN:OnChatMsgAddon(...)
 	elseif event == "VIGNETTE_MINIMAP_UPDATED" and RTN.chat_frame_loaded then
@@ -31,6 +27,7 @@ function RTN:OnEvent(event, ...)
 	end
 end
 
+-- Change from the original shard to the other.
 function RTN:ChangeShard(old_zone_uid, new_zone_uid)
 	-- Notify the users in your old shard that you have moved on to another shard.
 	RTN:RegisterDeparture(old_zone_uid)
@@ -48,6 +45,7 @@ function RTN:ChangeShard(old_zone_uid, new_zone_uid)
 	RTN:RegisterArrival(new_zone_uid)
 end
 
+-- Check whether the user has changed shards and proceed accordingly.
 function RTN:CheckForShardChange(zone_uid)
 	local has_changed = false
 
@@ -70,6 +68,7 @@ function RTN:CheckForShardChange(zone_uid)
 	return has_changed
 end
 
+-- Called when a target changed event is fired.
 function RTN:OnTargetChanged(...)
 	if UnitGUID("target") ~= nil then
 		-- Get information about the target.
@@ -86,27 +85,22 @@ function RTN:OnTargetChanged(...)
 			local health = UnitHealth("target")
 			
 			if health > 0 then
-				local percentage = RTN:GetTargetHealthPercentage()
-				
-				RTN.is_alive[npc_id] = time()
-				RTN.current_health[npc_id] = percentage
-				RTN:UpdateStatus(npc_id)
-				
-				-- Get the current position of the player.
+				-- Get the current position of the player and the health of the entity.
 				local pos = C_Map.GetPlayerMapPosition(C_Map.GetBestMapForUnit("player"), "player")
 				local x, y = math.floor(pos.x * 10000 + 0.5) / 100, math.floor(pos.y * 10000 + 0.5) / 100
+				local percentage = RTN:GetTargetHealthPercentage()
 				
+				-- Mark the entity as alive and report to your peers.
 				RTN:RegisterEntityTarget(RTN.current_shard_id, npc_id, spawn_uid, percentage, x, y)
 			else 
-				if RTN.recorded_entity_death_ids[spawn_uid] == nil then
-					RTN.recorded_entity_death_ids[spawn_uid] = true
-					RTN:RegisterEntityDeath(RTN.current_shard_id, npc_id)
-				end
+				-- Mark the entity has dead and report to your peers.
+				RTN:RegisterEntityDeath(RTN.current_shard_id, npc_id, spawn_uid)
 			end
 		end
 	end
 end
 
+-- Called when a unit health update event is fired.
 function RTN:OnUnitHealth(unit)
 	-- If the unit is not the target, skip.
 	if unit ~= "target" then 
@@ -127,15 +121,19 @@ function RTN:OnUnitHealth(unit)
 			-- Update the current health of the entity.
 			local percentage = RTN:GetTargetHealthPercentage()
 			
-			RTN.is_alive[npc_id] = time()
-			RTN.current_health[npc_id] = percentage
-			RTN:UpdateStatus(npc_id)
-			
-			RTN:RegisterEntityHealth(RTN.current_shard_id, npc_id, spawn_uid, percentage)
+			-- Does the entity have any health left?
+			if percentage > 0 then
+				-- Report the health of the entity to your peers.
+				RTN:RegisterEntityHealth(RTN.current_shard_id, npc_id, spawn_uid, percentage)
+			else
+				-- Mark the entity has dead and report to your peers.
+				RTN:RegisterEntityDeath(RTN.current_shard_id, npc_id, spawn_uid)
+			end
 		end
 	end
 end
 
+-- Called when a unit health update event is fired.
 function RTN:OnCombatLogEvent(...)
 	-- The event does not have a payload (8.0 change). Use CombatLogGetCurrentEventInfo() instead.
 	local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = CombatLogGetCurrentEventInfo()
@@ -152,39 +150,60 @@ function RTN:OnCombatLogEvent(...)
 		
 	if subevent == "UNIT_DIED" then
 		if RTN.rare_ids_set[npc_id] then
-			if RTN.recorded_entity_death_ids[spawn_uid] == nil then
-				RTN.recorded_entity_death_ids[spawn_uid] = true
-				RTN:RegisterEntityDeath(RTN.current_shard_id, npc_id)
-			end
+			-- Mark the entity has dead and report to your peers.
+			RTN:RegisterEntityDeath(RTN.current_shard_id, npc_id, spawn_uid)
 		end
 	end
 end	
 
+-- Called when a vignette on the minimap is updated.
+function RTN:OnVignetteMinimapUpdated(...)
+	vignetteGUID, onMinimap = ...
+	vignetteInfo = C_VignetteInfo.GetVignetteInfo(vignetteGUID)
+	
+	if not vignetteInfo and RTN.current_shard_id ~= nil then
+		-- An entity we saw earlier might have died.
+		if RTN.reported_vignettes[vignetteGUID] then
+			-- Fetch the npc_id and spawn_uid from our cached data.
+			npc_id, spawn_uid = RTN.reported_vignettes[vignetteGUID][1], RTN.reported_vignettes[vignetteGUID][2]
+		
+			-- Mark the entity has dead and report to your peers.
+			RTN:RegisterEntityDeath(RTN.current_shard_id, npc_id, spawn_uid)
+		end
+	elseif vignetteInfo then
+		-- Report the entity.
+		local unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid = strsplit("-", vignetteInfo.objectGUID);
+		local npc_id = tonumber(npc_id)
+		
+		if unittype == "Creature" then
+			if RTN:CheckForShardChange(zone_uid) then
+				--print("[OnVignette]", vignetteInfo.objectGUID)
+			end
+			
+			if RTN.rare_ids_set[npc_id] and not RTN.reported_vignettes[vignetteGUID] then
+				RTN.reported_vignettes[vignetteGUID] = {npc_id, spawn_uid}
+				RTN:RegisterEntityAlive(RTN.current_shard_id, npc_id, spawn_uid)
+			end
+		end
+	end
+end
+
+-- Called whenever an event occurs that could indicate a zone change.
 function RTN:OnZoneTransition()
 	-- The zone the player is in.
 	local zone_id = C_Map.GetBestMapForUnit("player")
 		
 	if RTN.target_zones[zone_id] and not RTN.target_zones[RTN.last_zone_id] then
-		-- Enable the Nazjatar rares.
-		RTN:StartInterface()
-		
+		RTN:StartInterface()	
 	elseif not RTN.target_zones[zone_id] then
-		-- Disable the addon.
-		
-		-- If we do not have a shard ID, we are not subscribed to one of the channels.
 		RTN:RegisterDeparture(RTN.current_shard_id)
-		
 		RTN:CloseInterface()
 	end
 	
 	RTN.last_zone_id = zone_id
 end	
 
-function RTN:OnChatMsgChannel(...)
-	local text, playerName, languageName, channelName, playerName2, specialFlags, zoneChannelID, channelIndex, channelBaseName, unused, lineID, guid, bnSenderID, isMobile, isSubtitle, hideSenderInLetterbox, supressRaidIcons = ...
-
-end	
-
+-- Called on every addon message received by the addon.
 function RTN:OnChatMsgAddon(...)
 	local addon_prefix, message, channel, sender = ...
 	
@@ -197,56 +216,24 @@ function RTN:OnChatMsgAddon(...)
 	end
 end	
 
-
-
-function RTN:OnVignetteMinimapUpdated(...)
-	vignetteGUID, onMinimap = ...
-	vignetteInfo = C_VignetteInfo.GetVignetteInfo(vignetteGUID)
-	
-	if vignetteInfo == nil and RTN.current_shard_id ~= nil then
-		-- An entity we saw earlier might have died.
-		if RTN.reported_vignettes[vignetteGUID] then
-			RTN:RegisterEntityDeath(RTN.current_shard_id, RTN.reported_vignettes[vignetteGUID])
-		end
-	else
-		if vignetteInfo == nil then
-			return
-		end
-	
-		-- Report the entity.
-		local unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid = strsplit("-", vignetteInfo.objectGUID);
-		local npc_id = tonumber(npc_id)
-		
-		if unittype == "Creature" then
-			if RTN:CheckForShardChange(zone_uid) then
-				--print("[OnVignette]", vignetteInfo.objectGUID)
-			end
-			
-			if RTN.rare_ids_set[npc_id] and not RTN.reported_vignettes[vignetteGUID] then
-				RTN.is_alive[npc_id] = time()
-				RTN.reported_vignettes[vignetteGUID] = npc_id
-				RTN:RegisterEntityAlive(RTN.current_shard_id, npc_id, spawn_uid)
-			end
-		end
-	end
-end
-
+-- A counter that tracks the time stamp on which the displayed data was updated last. 
 RTN.last_display_update = 0
 
+-- Called on every addon message received by the addon.
 function RTN:OnUpdate()
-	if (RTN.last_display_update + 0.25 < time()) then
+	if (RTN.last_display_update + 0.25 < GetServerTime()) then
 		for i=1, #RTN.rare_ids do
 			local npc_id = RTN.rare_ids[i]
 			
 			-- It might occur that the rare is marked as alive, but no health is known.
 			-- If 20 seconds pass without a health value, the alive tag will be reset.
-			if RTN.is_alive[npc_id] and not RTN.current_health[npc_id] and time() - RTN.is_alive[npc_id] > 20 then
+			if RTN.is_alive[npc_id] and not RTN.current_health[npc_id] and GetServerTime() - RTN.is_alive[npc_id] > 120 then
 				RTN.is_alive[npc_id] = nil
 			end
 			
 			-- It might occur that we have both a hp and health, but no changes.
 			-- If 2 minutes pass without a health value, the alive and health tags will be reset.
-			if RTN.is_alive[npc_id] and RTN.current_health[npc_id] and time() - RTN.is_alive[npc_id] > 120 then
+			if RTN.is_alive[npc_id] and RTN.current_health[npc_id] and GetServerTime() - RTN.is_alive[npc_id] > 120 then
 				RTN.is_alive[npc_id] = nil
 				RTN.current_health[npc_id] = nil
 			end
@@ -254,10 +241,11 @@ function RTN:OnUpdate()
 			RTN:UpdateStatus(npc_id)
 		end
 		
-		RTN.last_display_update = time();
+		RTN.last_display_update = GetServerTime();
 	end
 end	
 
+-- Called when the addon loaded event is fired.
 function RTN:OnAddonLoaded()
 	-- OnAddonLoaded might be called multiple times. We only want it to do so once.
 	if not RTN.is_loaded then
@@ -279,7 +267,7 @@ function RTN:OnAddonLoaded()
 		
 		-- Remove any data in the previous records that has expired.
 		for key, _ in pairs(RTNDB.previous_records) do
-			if time() - RTNDB.previous_records[key].time_stamp > 300 then
+			if GetServerTime() - RTNDB.previous_records[key].time_stamp > 300 then
 				print("<RTN> Removing cached data for shard", (key + 42)..".")
 				RTNDB.previous_records[key] = nil
 			end
@@ -287,32 +275,35 @@ function RTN:OnAddonLoaded()
 	end
 end	
 
+-- Called when the player logs out, such that we can save the current time table for later use.
 function RTN:OnPlayerLogout()
 	if RTN.current_shard_id then
+		-- Save the records, such that we can use them after a reload.
 		RTNDB.previous_records[RTN.current_shard_id] = {}
-		RTNDB.previous_records[RTN.current_shard_id].time_stamp = time()
+		RTNDB.previous_records[RTN.current_shard_id].time_stamp = GetServerTime()
 		RTNDB.previous_records[RTN.current_shard_id].time_table = RTN.last_recorded_death
 	end
 end
 
+-- Register to the events required for the addon to function properly.
 function RTN:RegisterEvents()
 	RTN:RegisterEvent("PLAYER_TARGET_CHANGED")
 	RTN:RegisterEvent("UNIT_HEALTH")
 	RTN:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-	RTN:RegisterEvent("CHAT_MSG_CHANNEL")
 	RTN:RegisterEvent("CHAT_MSG_ADDON")
 	RTN:RegisterEvent("VIGNETTE_MINIMAP_UPDATED")
 end
 
+-- Unregister from the events, to disable the tracking functionality.
 function RTN:UnregisterEvents()
 	RTN:UnregisterEvent("PLAYER_TARGET_CHANGED")
 	RTN:UnregisterEvent("UNIT_HEALTH")
 	RTN:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-	RTN:UnregisterEvent("CHAT_MSG_CHANNEL")
 	RTN:UnregisterEvent("CHAT_MSG_ADDON")
 	RTN:UnregisterEvent("VIGNETTE_MINIMAP_UPDATED")
 end
 
+-- Create a frame that handles the frame updates of the addon.
 RTN.updateHandler = CreateFrame("Frame", "RTN.updateHandler", RTN)
 RTN.updateHandler:SetScript("OnUpdate", RTN.OnUpdate)
 
@@ -334,12 +325,12 @@ RTN:RegisterEvent("PLAYER_LOGOUT")
 RTN.chat_frame_loaded = false
 
 RTN.message_delay_frame = CreateFrame("Frame", "RTN.message_delay_frame", self)
-RTN.message_delay_frame.start_time = time()
+RTN.message_delay_frame.start_time = GetServerTime()
 RTN.message_delay_frame:SetScript("OnUpdate", 
 	function(self)
-		if time() - self.start_time > 0 then
+		if GetServerTime() - self.start_time > 0 then
 			if #{GetChannelList()} == 0 then
-				self.start_time = time()
+				self.start_time = GetServerTime()
 			else
 				RTN.chat_frame_loaded = true
 				self:SetScript("OnUpdate", nil)
@@ -349,4 +340,3 @@ RTN.message_delay_frame:SetScript("OnUpdate",
 	end
 )
 RTN.message_delay_frame:Show()
-

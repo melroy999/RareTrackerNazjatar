@@ -99,10 +99,10 @@ function RTN:InitializeAliveMarkerFrame()
 					elseif RTN.current_health[npc_id] then
 						SendChatMessage(string.format("<RTN> %s (%s%%) seen at ~(N/A)", name, health), "CHANNEL", nil, 1)
 					elseif RTN.last_recorded_death[npc_id] ~= nil then
-						if time() - last_death < 60 then
-							SendChatMessage(string.format("<RTN> %s has died", name, time() - last_death), "CHANNEL", nil, 1)
+						if GetServerTime() - last_death < 60 then
+							SendChatMessage(string.format("<RTN> %s has died", name, GetServerTime() - last_death), "CHANNEL", nil, 1)
 						else
-							SendChatMessage(string.format("<RTN> %s was last seen ~%s minutes ago", name, math.floor((time() - last_death) / 60)), "CHANNEL", nil, 1)
+							SendChatMessage(string.format("<RTN> %s was last seen ~%s minutes ago", name, math.floor((GetServerTime() - last_death) / 60)), "CHANNEL", nil, 1)
 						end
 					elseif RTN.is_alive[npc_id] then
 						SendChatMessage(string.format("<RTN> %s seen alive (vignette)", name), "CHANNEL", nil, 1)
@@ -174,10 +174,10 @@ function RTN:UpdateStatus(npc_id)
 		alive_status_frame.texture:SetColorTexture(0, 1, 0, 1)
 	elseif RTN.last_recorded_death[npc_id] ~= nil then
 		local last_death = RTN.last_recorded_death[npc_id]
-		status_text_frame:SetText(math.floor((time() - last_death) / 60).."m")
+		status_text_frame:SetText(math.floor((GetServerTime() - last_death) / 60).."m")
 		alive_status_frame.texture:SetColorTexture(0, 0, 1, front_opacity)
 	elseif RTN.is_alive[npc_id] then
-		status_text_frame:SetText("NA")
+		status_text_frame:SetText("N/A")
 		alive_status_frame.texture:SetColorTexture(0, 1, 0, 1)
 	else
 		status_text_frame:SetText("--")

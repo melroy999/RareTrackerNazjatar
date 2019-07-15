@@ -34,8 +34,9 @@ sound_options['none'] = -1
 sound_options['Algalon: Beware!'] = 543587
 
 -- The version of the addon.
-RTN.version = 2
+RTN.version = 3
 -- Version 2: changed the order of the rares.
+-- Version 3: death messages now send the spawn id.
 
 -- The last zone the user was in.
 RTN.last_zone_id = nil
@@ -63,6 +64,7 @@ RTNDB.previous_records = {}
 -- ##                        Helper functions                        ##
 -- ####################################################################
 
+-- Get the current health of the entity, rounded down to an integer.
 function RTN:GetTargetHealthPercentage()
 	-- Find the current and maximum health of the current target.
 	local max_hp = UnitHealthMax("target")
@@ -75,6 +77,7 @@ function RTN:GetTargetHealthPercentage()
 	return math.floor((100 * UnitHealth("target")) / UnitHealthMax("target")) 
 end
 
+-- Open and start the RTN interface and subscribe to all the required events.
 function RTN:StartInterface()
 	-- Reset the data, since we cannot guarantee its correctness.
 	RTN.is_alive = {}
@@ -100,6 +103,7 @@ function RTN:StartInterface()
 	end
 end
 
+-- Open and start the RTN interface and unsubscribe to all the required events.
 function RTN:CloseInterface()
 	-- Reset the data.
 	RTN.is_alive = {}
@@ -145,11 +149,11 @@ local RTN_LDB = LibStub("LibDataBroker-1.1"):NewDataObject("RTN_icon_object", {
 		tooltip:Show()
 	end
 })
+
 RTN.icon = LibStub("LibDBIcon-1.0")
 RTN.icon:Hide("RTN_icon")
 
 function RTN:RegisterMapIcon() 
-
 	self.ace_db = LibStub("AceDB-3.0"):New("RTN_ace_db", {
 		profile = {
 			minimap = {
