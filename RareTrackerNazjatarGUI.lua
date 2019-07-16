@@ -93,11 +93,13 @@ function RTN:InitializeAliveMarkerFrame()
 				local loc = RTN.current_coordinates[npc_id]
 				
 				if button == "LeftButton" then
-					if RTN.current_health[npc_id] and loc then
+					if RTN.current_health[npc_id] then
 						-- SendChatMessage
-						SendChatMessage(string.format("<RTN> %s (%s%%) seen at ~(%.2f, %.2f)", name, health, loc.x, loc.y), "CHANNEL", nil, 1)
-					elseif RTN.current_health[npc_id] then
-						SendChatMessage(string.format("<RTN> %s (%s%%) seen at ~(N/A)", name, health), "CHANNEL", nil, 1)
+						if loc then
+							SendChatMessage(string.format("<RTN> %s (%s%%) seen at ~(%.2f, %.2f)", name, health, loc.x, loc.y), "CHANNEL", nil, 1)
+						else 
+							SendChatMessage(string.format("<RTN> %s (%s%%) seen at ~(N/A)", name, health), "CHANNEL", nil, 1)
+						end
 					elseif RTN.last_recorded_death[npc_id] ~= nil then
 						if GetServerTime() - last_death < 60 then
 							SendChatMessage(string.format("<RTN> %s has died", name, GetServerTime() - last_death), "CHANNEL", nil, 1)
@@ -105,7 +107,11 @@ function RTN:InitializeAliveMarkerFrame()
 							SendChatMessage(string.format("<RTN> %s was last seen ~%s minutes ago", name, math.floor((GetServerTime() - last_death) / 60)), "CHANNEL", nil, 1)
 						end
 					elseif RTN.is_alive[npc_id] then
-						SendChatMessage(string.format("<RTN> %s seen alive (vignette)", name), "CHANNEL", nil, 1)
+						if loc then
+							SendChatMessage(string.format("<RTN> %s seen alive, vignette at ~(%.2f, %.2f)", name, loc.x, loc.y), "CHANNEL", nil, 1)
+						else
+							SendChatMessage(string.format("<RTN> %s seen alive (vignette)", name), "CHANNEL", nil, 1)
+						end
 					end
 				else
 					-- does the user have tom tom? if so, add a waypoint if it exists.
@@ -204,7 +210,7 @@ function RTN:CorrectFavoriteMarks()
 end
 
 function RTN:UpdateDailyKillMark(npc_id)
-	if IsQuestFlaggedCompleted(RTN.completion_quest_ids[npc_id]) then
+	if RTN.completion_quest_ids[npc_id] and IsQuestFlaggedCompleted(RTN.completion_quest_ids[npc_id]) then
 		self.entity_name_frame.strings[npc_id]:SetText("(x) "..RTN.rare_names_localized["enUS"][npc_id])
 	else
 		self.entity_name_frame.strings[npc_id]:SetText(RTN.rare_names_localized["enUS"][npc_id])
