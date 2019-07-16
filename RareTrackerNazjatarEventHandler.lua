@@ -77,7 +77,7 @@ function RTN:OnTargetChanged(...)
 		npc_id = tonumber(npc_id)
 		
 		if RTN:CheckForShardChange(zone_uid) then
-			print("[Target]", guid)
+			RTN:Debug("[Target]", guid)
 		end
 		
 		if RTN.rare_ids_set[npc_id] then
@@ -114,7 +114,7 @@ function RTN:OnUnitHealth(unit)
 		npc_id = tonumber(npc_id)
 		
 		if RTN:CheckForShardChange(zone_uid) then
-			print("[OnUnitHealth]", guid)
+			RTN:Debug("[OnUnitHealth]", guid)
 		end
 		
 		if RTN.rare_ids_set[npc_id] then
@@ -148,7 +148,7 @@ function RTN:OnCombatLogEvent(...)
 	-- We exclude all pets and guardians, since they might have retained their old shard change.
 	if unittype == "Creature" and not RTN.banned_NPC_ids[npc_id] and bit.band(destFlags, flag_mask) == 0 then
 		if RTN:CheckForShardChange(zone_uid) then
-			print("[OnCombatLogEvent]", sourceGUID, destGUID)
+			RTN:Debug("[OnCombatLogEvent]", sourceGUID, destGUID)
 		end
 	end	
 		
@@ -182,7 +182,7 @@ function RTN:OnVignetteMinimapUpdated(...)
 		
 		if unittype == "Creature" then
 			if RTN:CheckForShardChange(zone_uid) then
-				print("[OnVignette]", vignetteInfo.objectGUID)
+				RTN:Debug("[OnVignette]", vignetteInfo.objectGUID)
 			end
 			
 			if RTN.rare_ids_set[npc_id] and not RTN.reported_vignettes[vignetteGUID] then
@@ -271,6 +271,21 @@ function RTN:OnAddonLoaded()
 		if not RTNDB.previous_records then
 			RTNDB.previous_records = {}
 		end
+		
+		if not RTNDB.selected_sound_number then
+			RTNDB.selected_sound_number = 552503
+		end
+		
+		if RTNDB.minimap_icon_enabled == nil then
+			RTNDB.minimap_icon_enabled = true
+		end
+		
+		if RTNDB.debug_enabled == nil then
+			RTNDB.debug_enabled = false
+		end
+		
+		-- Initialize the configuration menu.
+		RTN:InitializeConfigMenu()
 		
 		-- Remove any data in the previous records that has expired.
 		for key, _ in pairs(RTNDB.previous_records) do

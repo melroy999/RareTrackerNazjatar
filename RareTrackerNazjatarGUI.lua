@@ -160,7 +160,7 @@ function RTN:InitializeInterfaceEntityStatusFrame()
 	f.strings = {}
 	for i=1, #RTN.rare_ids do
 		local npc_id = RTN.rare_ids[i]
-		f.strings[npc_id] = f:CreateFontString(nil, nil,"GameFontNormal")
+		f.strings[npc_id] = f:CreateFontString(nil, nil, "GameFontNormal")
 		f.strings[npc_id]:SetPoint("TOP", 0, -(i - 1) * 12 - 4)
 		f.strings[npc_id]:SetText("--")
 		f.strings[npc_id]:SetJustifyH("LEFT")
@@ -377,3 +377,144 @@ function RTN:InitializeInterface()
 end
 
 RTN:InitializeInterface()
+
+-- ####################################################################
+-- ##                       Options Interface                        ##
+-- ####################################################################
+
+
+
+-- Options:
+-- Select warning sound
+-- Reset Favorites
+-- Show/hide minimap icon
+-- Enable debug prints
+
+-- The provided sound options.
+local sound_options = {}
+sound_options[''] = -1
+sound_options["Rubber Ducky"] = 566121
+sound_options["Cartoon FX"] = 566543
+sound_options["Explosion"] = 566982
+sound_options["Shing!"] = 566240
+sound_options["Wham!"] = 566946
+sound_options["Simon Chime"] = 566076
+sound_options["War Drums"] = 567275
+sound_options["Scourge Horn"] = 567386
+sound_options["Pygmy Drums"] = 566508
+sound_options["Cheer"] = 567283
+sound_options["Humm"] = 569518
+sound_options["Short Circuit"] = 568975
+sound_options["Fel Portal"] = 569215
+sound_options["Fel Nova"] = 568582
+sound_options["PVP Flag"] = 569200
+sound_options["Beware!"] = 543587
+sound_options["Laugh"] = 564859
+sound_options["Not Prepared"] = 552503
+sound_options["I am Unleashed"] = 554554
+sound_options["I see you"] = 554236
+
+local sound_options_inverse = {}
+for key, value in pairs(sound_options) do
+	sound_options_inverse[value] = key
+end
+
+function RTN:IntializeSoundSelectionMenu(parent_frame)
+	local f = CreateFrame("frame", "RTN.options_panel.sound_selection", parent_frame, "UIDropDownMenuTemplate")
+	UIDropDownMenu_SetWidth(f, 140)
+	UIDropDownMenu_SetText(f, sound_options_inverse[RTNDB.selected_sound_number])
+	
+	f.onClick = function(self, sound_id, arg2, checked)
+		RTNDB.selected_sound_number = sound_id
+		UIDropDownMenu_SetText(f, sound_options_inverse[RTNDB.selected_sound_number])
+		PlaySoundFile(RTNDB.selected_sound_number)
+	end
+	
+	f.initialize = function(self, level, menuList)
+		local info = UIDropDownMenu_CreateInfo()
+		
+		for key, value in pairs(sound_options) do
+			info.text = key
+			info.arg1 = value
+			info.func = f.onClick
+			info.menuList = key
+			info.checked = RTNDB.selected_sound_number == value
+			UIDropDownMenu_AddButton(info)
+		end
+	end
+	
+	f.label = f:CreateFontString(nil, "BORDER", "GameFontNormal")
+	f.label:SetJustifyH("LEFT")
+	f.label:SetText("Favorite sound alert")
+	f.label:SetPoint("TOPLEFT", parent_frame)
+	
+	f:SetPoint("TOPLEFT", f.label, -20, -13)
+	
+	return f
+end
+
+function RTN:IntializeMinimapCheckbox(parent_frame)
+	local f = CreateFrame("CheckButton", "RTN.options_panel.minimap_checkbox", parent_frame, "ChatConfigCheckButtonTemplate");
+	getglobal(f:GetName() .. 'Text'):SetText(" Show minimap icon");
+	f.tooltip = "Show or hide the minimap button.";
+	f:SetScript("OnClick", 
+		function()
+			local zone_id = C_Map.GetBestMapForUnit("player")
+		
+			RTNDB.minimap_icon_enabled = not RTNDB.minimap_icon_enabled
+			if not RTNDB.minimap_icon_enabled then
+				RTN.icon:Hide("RTN_icon")
+			elseif RTN.target_zones[C_Map.GetBestMapForUnit("player")] then
+				RTN.icon:Show("RTN_icon")
+			end
+		end
+	);
+	f:SetChecked(RTNDB.minimap_icon_enabled)
+	f:SetPoint("TOPLEFT", parent_frame, 0, -53)
+end
+
+function RTN:IntializeDebugCheckbox(parent_frame)
+	local f = CreateFrame("CheckButton", "RTN.options_panel.debug_checkbox", parent_frame, "ChatConfigCheckButtonTemplate");
+	getglobal(f:GetName() .. 'Text'):SetText(" Enable debug mode");
+	f.tooltip = "Show or hide the minimap button.";
+	f:SetScript("OnClick", 
+		function()
+			RTNDB.debug_enabled = not RTNDB.debug_enabled
+		end
+	);
+	f:SetChecked(RTNDB.debug_enabled)
+	f:SetPoint("TOPLEFT", parent_frame, 0, -75)
+end
+
+function RTN:InitializeConfigMenu()
+	RTN.options_panel = CreateFrame("Frame", "RTN.options_panel", UIParent)
+	RTN.options_panel.name = "RareTrackerNazjatar"
+	InterfaceOptions_AddCategory(RTN.options_panel)
+	
+	RTN.options_panel.frame = CreateFrame("Frame", "RTN.options_panel.frame", RTN.options_panel)
+	RTN.options_panel.frame:SetPoint("TOPLEFT", RTN.options_panel, 11, -14)
+	RTN.options_panel.frame:SetSize(500, 500)
+
+	RTN.options_panel.sound_selector = RTN:IntializeSoundSelectionMenu(RTN.options_panel.frame)
+	RTN.options_panel.minimap_checkbox = RTN:IntializeMinimapCheckbox(RTN.options_panel.frame)
+	RTN.options_panel.debug_checkbox = RTN:IntializeDebugCheckbox(RTN.options_panel.frame)
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

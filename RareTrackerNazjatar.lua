@@ -78,6 +78,13 @@ function RTN:GetTargetHealthPercentage()
 	return math.floor((100 * UnitHealth("target")) / UnitHealthMax("target")) 
 end
 
+-- A print function used for debug purposes.
+function RTN:Debug(...)
+	if RTNDB.debug_enabled then
+		print(...)
+	end
+end
+
 -- Open and start the RTN interface and subscribe to all the required events.
 function RTN:StartInterface()
 	-- Reset the data, since we cannot guarantee its correctness.
@@ -93,7 +100,12 @@ function RTN:StartInterface()
 	RTN:UpdateAllDailyKillMarks()
 	
 	RTN:RegisterEvents()
-	RTN.icon:Show("RTN_icon")
+	
+	if RTNDB.minimap_icon_enabled then
+		RTN.icon:Show("RTN_icon")
+	else
+		RTN.icon:Hide("RTN_icon")
+	end
 	
 	if C_ChatInfo.RegisterAddonMessagePrefix("RTN") ~= true then
 		print("<RTN> Failed to register AddonPrefix 'RTN'. RTN will not function properly.")
