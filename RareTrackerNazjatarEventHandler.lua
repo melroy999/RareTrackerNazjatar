@@ -77,7 +77,7 @@ function RTN:OnTargetChanged(...)
 		npc_id = tonumber(npc_id)
 		
 		if RTN:CheckForShardChange(zone_uid) then
-			--print("[Target]", guid)
+			print("[Target]", guid)
 		end
 		
 		if RTN.rare_ids_set[npc_id] then
@@ -114,7 +114,7 @@ function RTN:OnUnitHealth(unit)
 		npc_id = tonumber(npc_id)
 		
 		if RTN:CheckForShardChange(zone_uid) then
-			--print("[OnUnitHealth]", guid)
+			print("[OnUnitHealth]", guid)
 		end
 		
 		if RTN.rare_ids_set[npc_id] then
@@ -133,6 +133,9 @@ function RTN:OnUnitHealth(unit)
 	end
 end
 
+-- The flag used to detect guardians or pets.
+local flag_mask = bit.bor(COMBATLOG_OBJECT_TYPE_GUARDIAN, COMBATLOG_OBJECT_TYPE_PET, COMBATLOG_OBJECT_TYPE_OBJECT)
+
 -- Called when a unit health update event is fired.
 function RTN:OnCombatLogEvent(...)
 	-- The event does not have a payload (8.0 change). Use CombatLogGetCurrentEventInfo() instead.
@@ -142,9 +145,10 @@ function RTN:OnCombatLogEvent(...)
 	
 	-- We can always check for a shard change.
 	-- We only take fights between creatures, since they seem to be the only reliable option.
-	if unittype == "Creature" and not RTN.banned_NPC_ids[npc_id] then
+	-- We exclude all pets and guardians, since they might have retained their old shard change.
+	if unittype == "Creature" and not RTN.banned_NPC_ids[npc_id] and bit.band(destFlags, flag_mask) == 0 then
 		if RTN:CheckForShardChange(zone_uid) then
-			--print("[OnCombatLogEvent]", sourceGUID, destGUID)
+			print("[OnCombatLogEvent]", sourceGUID, destGUID)
 		end
 	end	
 		
@@ -178,7 +182,7 @@ function RTN:OnVignetteMinimapUpdated(...)
 		
 		if unittype == "Creature" then
 			if RTN:CheckForShardChange(zone_uid) then
-				--print("[OnVignette]", vignetteInfo.objectGUID)
+				print("[OnVignette]", vignetteInfo.objectGUID)
 			end
 			
 			if RTN.rare_ids_set[npc_id] and not RTN.reported_vignettes[vignetteGUID] then

@@ -20,6 +20,11 @@ RTN.banned_NPC_ids[152108] = true
 RTN.banned_NPC_ids[151300] = true
 RTN.banned_NPC_ids[151310] = true
 RTN.banned_NPC_ids[69792] = true
+RTN.banned_NPC_ids[62821] = true
+RTN.banned_NPC_ids[62822] = true
+RTN.banned_NPC_ids[32639] = true
+RTN.banned_NPC_ids[32638] = true
+RTN.banned_NPC_ids[89715] = true
 
 -- Simulate a set data structure for efficient existence lookups.
 function Set (list)
