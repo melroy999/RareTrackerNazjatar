@@ -189,13 +189,13 @@ end
 
 -- Inform the others that a specific entity has died.
 function RTN:RegisterEntityDeath(shard_id, npc_id, spawn_uid)
-	if not RTN.recorded_entity_death_ids[spawn_uid] then
+	if not RTN.recorded_entity_death_ids[spawn_uid..npc_id] then
 		-- Mark the entity as dead.
 		RTN.last_recorded_death[npc_id] = GetServerTime()
 		RTN.is_alive[npc_id] = nil
 		RTN.current_health[npc_id] = nil
 		RTN.current_coordinates[npc_id] = nil
-		RTN.recorded_entity_death_ids[spawn_uid] = true
+		RTN.recorded_entity_death_ids[spawn_uid..npc_id] = true
 		
 		-- We want to avoid overwriting existing channel numbers. So delay the channel join.
 		RTN:DelayedExecution(1, function() RTN:UpdateDailyKillMark(npc_id) end)
@@ -207,7 +207,7 @@ end
 
 -- Inform the others that you have spotted an alive entity.
 function RTN:RegisterEntityAlive(shard_id, npc_id, spawn_uid, x, y)
-	if RTN.recorded_entity_death_ids[spawn_uid] == nil then
+	if RTN.recorded_entity_death_ids[spawn_uid..npc_id] == nil then
 		-- Mark the entity as alive.
 		RTN.is_alive[npc_id] = GetServerTime()
 	
@@ -225,7 +225,7 @@ end
 
 -- Inform the others that you have spotted an alive entity.
 function RTN:RegisterEntityTarget(shard_id, npc_id, spawn_uid, percentage, x, y)
-	if RTN.recorded_entity_death_ids[spawn_uid] == nil then
+	if RTN.recorded_entity_death_ids[spawn_uid..npc_id] == nil then
 		-- Mark the entity as targeted and alive.
 		RTN.is_alive[npc_id] = GetServerTime()
 		RTN.current_health[npc_id] = percentage
@@ -254,14 +254,14 @@ end
 
 -- Acknowledge that the entity has died and set the according flags.
 function RTN:AcknowledgeEntityDeath(npc_id, spawn_uid)	
-	if not RTN.recorded_entity_death_ids[spawn_uid] then
+	if not RTN.recorded_entity_death_ids[spawn_uid..npc_id] then
 		-- Mark the entity as dead.
 		RTN.last_recorded_death[npc_id] = GetServerTime()
 		RTN.is_alive[npc_id] = nil
 		RTN.current_health[npc_id] = nil
 		RTN.current_coordinates[npc_id] = nil
 		RTN:UpdateDailyKillMark(npc_id)
-		RTN.recorded_entity_death_ids[spawn_uid] = true
+		RTN.recorded_entity_death_ids[spawn_uid..npc_id] = true
 		RTN:UpdateStatus(npc_id)
 	end
 
@@ -273,7 +273,7 @@ end
 
 -- Acknowledge that the entity is alive and set the according flags.
 function RTN:AcknowledgeEntityAlive(npc_id, spawn_uid, x, y)
-	if not RTN.recorded_entity_death_ids[spawn_uid] then
+	if not RTN.recorded_entity_death_ids[spawn_uid..npc_id] then
 		RTN.is_alive[npc_id] = GetServerTime()
 		RTN:UpdateStatus(npc_id)
 		
@@ -293,7 +293,7 @@ end
 
 -- Acknowledge that the entity is alive and set the according flags.
 function RTN:AcknowledgeEntityTarget(npc_id, spawn_uid, percentage, x, y)
-	if not RTN.recorded_entity_death_ids[spawn_uid] then
+	if not RTN.recorded_entity_death_ids[spawn_uid..npc_id] then
 		RTN.last_recorded_death[npc_id] = nil
 		RTN.is_alive[npc_id] = GetServerTime()
 		RTN.current_health[npc_id] = percentage
@@ -312,7 +312,7 @@ end
 
 -- Acknowledge the health change of the entity and set the according flags.
 function RTN:AcknowledgeEntityHealth(npc_id, spawn_uid, percentage)
-	if not RTN.recorded_entity_death_ids[spawn_uid] then
+	if not RTN.recorded_entity_death_ids[spawn_uid..npc_id] then
 		RTN.last_recorded_death[npc_id] = nil
 		RTN.is_alive[npc_id] = GetServerTime()
 		RTN.current_health[npc_id] = percentage
@@ -339,6 +339,8 @@ function RTN:OnChatMessageReceived(player, prefix, shard_id, addon_version, payl
 		print("<RTN> Your version or RareTrackerNazjatar is outdated. Please update to the most recent version at the earliest convenience.")
 		reported_version_mismatch = true
 	end
+	
+	--RTN:Debug(player, prefix, shard_id, addon_version, payload)
 	
 	-- Only allow communication if the users are on the same shards and if their addon version is equal.
 	if RTN.current_shard_id == shard_id and RTN.version == addon_version then
