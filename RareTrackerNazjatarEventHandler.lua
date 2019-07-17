@@ -75,6 +75,9 @@ function RTN:OnTargetChanged(...)
 		local guid, name = UnitGUID("target"), UnitName("target")
 		local unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid = strsplit("-", guid);
 		npc_id = tonumber(npc_id)
+	
+		-- It might occur that the NPC id is nil. Do not proceed in such a case.
+		if not npc_id then return end
 		
 		if not RTN.banned_NPC_ids[npc_id] and not RTNDB.banned_NPC_ids[npc_id] then
 			if RTN:CheckForShardChange(zone_uid) then
@@ -114,6 +117,9 @@ function RTN:OnUnitHealth(unit)
 		local guid, name = UnitGUID("target"), UnitName("target")
 		local unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid = strsplit("-", guid);
 		npc_id = tonumber(npc_id)
+	
+		-- It might occur that the NPC id is nil. Do not proceed in such a case.
+		if not npc_id then return end
 		
 		if not RTN.banned_NPC_ids[npc_id] and not RTNDB.banned_NPC_ids[npc_id] then
 			if RTN:CheckForShardChange(zone_uid) then
@@ -150,6 +156,9 @@ function RTN:OnCombatLogEvent(...)
 	local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = CombatLogGetCurrentEventInfo()
 	local unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid = strsplit("-", destGUID);
 	npc_id = tonumber(npc_id)
+	
+	-- It might occur that the NPC id is nil. Do not proceed in such a case.
+	if not npc_id then return end
 	
 	-- Blacklist the entity.
 	if not RTNDB.banned_NPC_ids[npc_id] and bit.band(destFlags, flag_mask) > 0 then
@@ -192,6 +201,9 @@ function RTN:OnVignetteMinimapUpdated(...)
 		-- Report the entity.
 		local unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid = strsplit("-", vignetteInfo.objectGUID);
 		local npc_id = tonumber(npc_id)
+	
+		-- It might occur that the NPC id is nil. Do not proceed in such a case.
+		if not npc_id then return end
 		
 		if unittype == "Creature" then
 			if not RTN.banned_NPC_ids[npc_id] and not RTNDB.banned_NPC_ids[npc_id] then
