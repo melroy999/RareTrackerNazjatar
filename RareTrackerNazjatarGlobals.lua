@@ -124,6 +124,23 @@ RTN.rare_names_localized["enUS"][152568] = "Urduu"
 RTN.rare_names_localized["enUS"][151719] = "Voice in the Deeps"
 RTN.rare_names_localized["enUS"][150468] = "Vor'koth"
 
+-- All other localizations are displayed in English.
+RTN.rare_names_localized["frFR"] = RTN.rare_names_localized["enUS"]
+RTN.rare_names_localized["deDE"] = RTN.rare_names_localized["enUS"]
+RTN.rare_names_localized["enGB"] = RTN.rare_names_localized["enUS"]
+RTN.rare_names_localized["itIT"] = RTN.rare_names_localized["enUS"]
+RTN.rare_names_localized["zhCN"] = RTN.rare_names_localized["enUS"]
+RTN.rare_names_localized["zhTW"] = RTN.rare_names_localized["enUS"]
+RTN.rare_names_localized["koKR"] = RTN.rare_names_localized["enUS"]
+RTN.rare_names_localized["ruRU"] = RTN.rare_names_localized["enUS"]
+RTN.rare_names_localized["esES"] = RTN.rare_names_localized["enUS"]
+RTN.rare_names_localized["esMX"] = RTN.rare_names_localized["enUS"]
+RTN.rare_names_localized["ptBR"] = RTN.rare_names_localized["enUS"]
+
+-- Select the rare name table, using the localization.
+RTN.localization = GetLocale()
+RTN.rare_names = RTN.rare_names_localized[RTN.localization]
+
 -- The quest ids that indicate that the rare has been killed already.
 RTN.completion_quest_ids = {}
 RTN.completion_quest_ids[152415] = 56279 -- "Alga the Eyeless"
