@@ -2,7 +2,7 @@ local _, data = ...
 
 local RTN = data.RTN
 
-local entity_name_width = 180
+local entity_name_width = 208
 local entity_status_width = 50 
 local frame_padding = 4
 local favorite_rares_width = 10
@@ -87,7 +87,7 @@ function RTN:InitializeAliveMarkerFrame()
 		-- Add an action listener.
 		f.checkboxes[npc_id]:SetScript("OnClick", 
 			function(self, button, down)
-				local name = RTN.rare_names_localized["enUS"][npc_id]
+				local name = RTN.rare_names[npc_id]
 				local health = RTN.current_health[npc_id]
 				local last_death = RTN.last_recorded_death[npc_id]
 				local loc = RTN.current_coordinates[npc_id]
@@ -142,7 +142,7 @@ function RTN:InitializeInterfaceEntityNameFrame()
 		f.strings[npc_id]:SetJustifyH("LEFT")
 		f.strings[npc_id]:SetJustifyV("TOP")
 		f.strings[npc_id]:SetPoint("TOPLEFT", 10, -(i - 1) * 12 - 4)
-		f.strings[npc_id]:SetText(RTN.rare_names_localized["enUS"][npc_id])
+		f.strings[npc_id]:SetText(RTN.rare_names[npc_id])
 	end
 	
 	f:SetPoint("TOPLEFT", self, 3 * frame_padding + 2 * favorite_rares_width, -(2 * frame_padding + shard_id_frame_height))
@@ -211,9 +211,11 @@ end
 
 function RTN:UpdateDailyKillMark(npc_id)
 	if RTN.completion_quest_ids[npc_id] and IsQuestFlaggedCompleted(RTN.completion_quest_ids[npc_id]) then
-		self.entity_name_frame.strings[npc_id]:SetText("(x) "..RTN.rare_names_localized["enUS"][npc_id])
+		self.entity_name_frame.strings[npc_id]:SetText(RTN.rare_names[npc_id])
+		self.entity_name_frame.strings[npc_id]:SetFontObject("GameFontRed")
 	else
-		self.entity_name_frame.strings[npc_id]:SetText(RTN.rare_names_localized["enUS"][npc_id])
+		self.entity_name_frame.strings[npc_id]:SetText(RTN.rare_names[npc_id])
+		self.entity_name_frame.strings[npc_id]:SetFontObject("GameFontNormal")
 	end
 end
 
@@ -487,6 +489,34 @@ function RTN:IntializeDebugCheckbox(parent_frame)
 	f:SetPoint("TOPLEFT", parent_frame, 0, -75)
 end
 
+function RTN:IntializeScaleSlider(parent_frame)
+	local f = CreateFrame("Slider", "RTN.options_panel.scale_slider", parent_frame, "OptionsSliderTemplate")
+	f.tooltip = "Set the scale of the rare window.";
+	f:SetMinMaxValues(0.5, 2)
+	f:SetValueStep(0.05)
+	f:SetValue(RTNDB.window_scale)
+	RTN:SetScale(RTNDB.window_scale)
+	f:Enable()
+	
+	f:SetScript("OnValueChanged", 
+		function(self, value)
+			-- Round the value to the nearest step value.
+			value = math.floor(value * 20) / 20
+		
+			RTNDB.window_scale = value
+			self.label:SetText("Rare window scale "..string.format("(%.2f)", RTNDB.window_scale))
+			RTN:SetScale(RTNDB.window_scale)
+		end
+	);
+	
+	f.label = f:CreateFontString(nil, "BORDER", "GameFontNormal")
+	f.label:SetJustifyH("LEFT")
+	f.label:SetText("Rare window scale "..string.format("(%.2f)", RTNDB.window_scale))
+	f.label:SetPoint("TOPLEFT", parent_frame, 0, -103)
+	
+	f:SetPoint("TOPLEFT", f.label, 5, -15)
+end
+
 function RTN:InitializeConfigMenu()
 	RTN.options_panel = CreateFrame("Frame", "RTN.options_panel", UIParent)
 	RTN.options_panel.name = "RareTrackerNazjatar"
@@ -499,7 +529,9 @@ function RTN:InitializeConfigMenu()
 	RTN.options_panel.sound_selector = RTN:IntializeSoundSelectionMenu(RTN.options_panel.frame)
 	RTN.options_panel.minimap_checkbox = RTN:IntializeMinimapCheckbox(RTN.options_panel.frame)
 	RTN.options_panel.debug_checkbox = RTN:IntializeDebugCheckbox(RTN.options_panel.frame)
+	RTN.options_panel.scale_slider = RTN:IntializeScaleSlider(RTN.options_panel.frame)
 end
+
 
 
 

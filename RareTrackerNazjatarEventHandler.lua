@@ -330,6 +330,10 @@ function RTN:OnAddonLoaded()
 			RTNDB.banned_NPC_ids = {}
 		end
 		
+		if not RTNDB.window_scale then
+			RTNDB.window_scale = 1.0
+		end
+		
 		-- Initialize the configuration menu.
 		RTN:InitializeConfigMenu()
 		
