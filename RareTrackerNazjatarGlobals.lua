@@ -124,10 +124,55 @@ RTN.rare_names_localized["enUS"][152568] = "Urduu"
 RTN.rare_names_localized["enUS"][151719] = "Voice in the Deeps"
 RTN.rare_names_localized["enUS"][150468] = "Vor'koth"
 
+-- The names to be displayed in the frames and general chat messages for English (GB) localization.
+RTN.rare_names_localized["enGB"] = RTN.rare_names_localized["enUS"]
+
+-- The names to be displayed in the frames and general chat messages for German localization.
+RTN.rare_names_localized["deDE"] = {}
+RTN.rare_names_localized["deDE"][152415] = "Alga der Augenlose"
+RTN.rare_names_localized["deDE"][152416] = "Allseher Oma'kil"
+RTN.rare_names_localized["deDE"][152794] = "Amethystspindelschnecke"
+RTN.rare_names_localized["deDE"][152566] = "Anemonar"
+RTN.rare_names_localized["deDE"][150191] = "Avarius"
+RTN.rare_names_localized["deDE"][152361] = "Fluchschuppe der Rudelvater"
+RTN.rare_names_localized["deDE"][152712] = "Blindlicht"
+RTN.rare_names_localized["deDE"][149653] = "Fleischfressender Peitscher"
+RTN.rare_names_localized["deDE"][152464] = "Höhlendunkelschrecken"
+RTN.rare_names_localized["deDE"][152556] = "Schluchtschatten"
+RTN.rare_names_localized["deDE"][152756] = "Dolchzahnschrecken"
+RTN.rare_names_localized["deDE"][152291] = "Tiefengleiter"
+RTN.rare_names_localized["deDE"][152414] = "Ältester Unu"
+RTN.rare_names_localized["deDE"][152555] = "Brutälteste von Nalaada"
+RTN.rare_names_localized["deDE"][65090] = "Fabius"
+RTN.rare_names_localized["deDE"][152553] = "Granatschuppe"
+RTN.rare_names_localized["deDE"][152448] = "Schillernde Schimmerschale"
+RTN.rare_names_localized["deDE"][152567] = "Tangwurz"
+RTN.rare_names_localized["deDE"][152323] = "König Gakula"
+RTN.rare_names_localized["deDE"][144644] = "Schlammkriecher"
+RTN.rare_names_localized["deDE"][152465] = "Nadelstachel"
+RTN.rare_names_localized["deDE"][152397] = "Oronu"
+RTN.rare_names_localized["deDE"][152681] = "Prinz Typhonus"
+RTN.rare_names_localized["deDE"][152682] = "Prinz Vortran"
+RTN.rare_names_localized["deDE"][150583] = "Felskrautschlurfer"
+RTN.rare_names_localized["deDE"][151870] = "Sandburg"
+RTN.rare_names_localized["deDE"][152795] = "Sandscherensteinpanzer"
+RTN.rare_names_localized["deDE"][152548] = "Schuppenmatriarchin Gratinax"
+RTN.rare_names_localized["deDE"][152545] = "Schuppenmatriarchin Vynara"
+RTN.rare_names_localized["deDE"][152542] = "Schuppenmatriarchin Zodia"
+RTN.rare_names_localized["deDE"][152552] = "Shassera"
+RTN.rare_names_localized["deDE"][153658] = "Shiz'narasz der Verschlinger"
+RTN.rare_names_localized["deDE"][152359] = "Schlickpirsch die Rudelmutter"
+RTN.rare_names_localized["deDE"][152290] = "Lautlos"
+RTN.rare_names_localized["deDE"][153898] = "Gezeitenlord Aquatus"
+RTN.rare_names_localized["deDE"][153928] = "Gezeitenlord Dispersius"
+RTN.rare_names_localized["deDE"][154148] = "Gezeitenherrin Leth'sindra"
+RTN.rare_names_localized["deDE"][152360] = "Toxigore der Alpha"
+RTN.rare_names_localized["deDE"][152568] = "Urduu"
+RTN.rare_names_localized["deDE"][151719] = "Stimme in den Tiefen"
+RTN.rare_names_localized["deDE"][150468] = "Vor'koth"
+
 -- All other localizations are displayed in English.
 RTN.rare_names_localized["frFR"] = RTN.rare_names_localized["enUS"]
-RTN.rare_names_localized["deDE"] = RTN.rare_names_localized["enUS"]
-RTN.rare_names_localized["enGB"] = RTN.rare_names_localized["enUS"]
 RTN.rare_names_localized["itIT"] = RTN.rare_names_localized["enUS"]
 RTN.rare_names_localized["zhCN"] = RTN.rare_names_localized["enUS"]
 RTN.rare_names_localized["zhTW"] = RTN.rare_names_localized["enUS"]
