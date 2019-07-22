@@ -16,6 +16,8 @@ front_opacity = 0.6
 -- ##                              GUI                               ##
 -- ####################################################################
 
+RTN.last_reload_time = 0
+
 function RTN:InitializeShardNumberFrame()
 	local f = CreateFrame("Frame", "RTN.shard_id_frame", self)
 	f:SetSize(entity_name_width + entity_status_width + 3 * frame_padding + 2 * favorite_rares_width, shard_id_frame_height)
@@ -225,12 +227,22 @@ function RTN:CorrectFavoriteMarks()
 end
 
 function RTN:UpdateDailyKillMark(npc_id)
-	if RTN.completion_quest_ids[npc_id] and IsQuestFlaggedCompleted(RTN.completion_quest_ids[npc_id]) then
-		self.entity_name_frame.strings[npc_id]:SetText(RTN.rare_names[npc_id])
-		self.entity_name_frame.strings[npc_id]:SetFontObject("GameFontRed")
-	else
-		self.entity_name_frame.strings[npc_id]:SetText(RTN.rare_names[npc_id])
-		self.entity_name_frame.strings[npc_id]:SetFontObject("GameFontNormal")
+	if not RTN.completion_quest_ids[npc_id] then 
+		return 
+	end
+	
+	-- Multiple NPCs might share the same quest id.
+	local completion_quest_id = RTN.completion_quest_ids[npc_id]
+	local npc_ids = RTN.completion_quest_inverse[completion_quest_id]
+	
+	for key, npc_id in pairs(npc_ids) do
+		if RTN.completion_quest_ids[npc_id] and IsQuestFlaggedCompleted(RTN.completion_quest_ids[npc_id]) then
+			self.entity_name_frame.strings[npc_id]:SetText(RTN.rare_names[npc_id])
+			self.entity_name_frame.strings[npc_id]:SetFontObject("GameFontRed")
+		else
+			self.entity_name_frame.strings[npc_id]:SetText(RTN.rare_names[npc_id])
+			self.entity_name_frame.strings[npc_id]:SetFontObject("GameFontNormal")
+		end
 	end
 end
 
@@ -344,6 +356,79 @@ function RTN:InitializeAnnounceIconFrame(f)
 	);
 end
 
+function InitializeReloadButton(f)
+	f.reload_button = CreateFrame("Button", "RTN.reload_button", f)
+	f.reload_button:SetSize(10, 10)
+	f.reload_button:SetPoint("TOPRIGHT", f, -2 * frame_padding, -(frame_padding + 3))
+
+	f.reload_button.texture = f.reload_button:CreateTexture(nil, "OVERLAY")
+	f.reload_button.texture:SetTexture("Interface\\AddOns\\RareTrackerNazjatar\\Icons\\Reload.tga")
+	f.reload_button.texture:SetSize(10, 10)
+	f.reload_button.texture:SetPoint("CENTER", f.reload_button)
+	
+	-- Create a tooltip window.
+	f.reload_button.tooltip = CreateFrame("Frame", nil, UIParent)
+	f.reload_button.tooltip:SetSize(390, 34)
+	
+	local texture = f.reload_button.tooltip:CreateTexture(nil, "BACKGROUND")
+	texture:SetColorTexture(0, 0, 0, front_opacity)
+	texture:SetAllPoints(f.reload_button.tooltip)
+	f.reload_button.tooltip.texture = texture
+	f.reload_button.tooltip:SetPoint("TOPLEFT", f, 0, 35)
+	f.reload_button.tooltip:Hide()
+	
+	f.reload_button.tooltip.text1 = f.reload_button.tooltip:CreateFontString(nil, nil, "GameFontNormal")
+	f.reload_button.tooltip.text1:SetJustifyH("LEFT")
+	f.reload_button.tooltip.text1:SetJustifyV("TOP")
+	f.reload_button.tooltip.text1:SetPoint("TOPLEFT", f.reload_button.tooltip, 5, -3)
+	f.reload_button.tooltip.text1:SetText("Reset your data and replace it with the data of others.")
+	
+	f.reload_button.tooltip.text2 = f.reload_button.tooltip:CreateFontString(nil, nil, "GameFontNormal")
+	f.reload_button.tooltip.text2:SetJustifyH("LEFT")
+	f.reload_button.tooltip.text2:SetJustifyV("TOP")
+	f.reload_button.tooltip.text2:SetPoint("TOPLEFT", f.reload_button.tooltip, 5, -15)
+	f.reload_button.tooltip.text2:SetText("Note: you do not need to press this button to receive new timers.")
+	
+	-- Hide and show the tooltip on mouseover.
+	f.reload_button:SetScript("OnEnter", 
+		function(self)
+			self.tooltip:Show()
+		end
+	);
+	
+	f.reload_button:SetScript("OnLeave", 
+		function(self)
+			self.tooltip:Hide()
+		end
+	);
+	
+	f.reload_button:SetScript("OnClick", 
+		function()
+			if RTN.current_shard_id ~= nil and GetServerTime() - RTN.last_reload_time > 600 then
+				print("<RTN> Resetting current rare timers and requesting up-to-date data.")
+				RTN.is_alive = {}
+				RTN.current_health = {}
+				RTN.last_recorded_death = {}
+				RTN.recorded_entity_death_ids = {}
+				RTN.current_coordinates = {}
+				RTN.reported_spawn_uids = {}
+				RTN.reported_vignettes = {}
+				RTN.last_reload_time = GetServerTime()
+				
+				-- Reset the cache.
+				RTNDB.previous_records[RTN.current_shard_id] = nil
+				
+				-- Re-register your arrival in the shard.
+				RTN:RegisterArrival(RTN.current_shard_id)
+			elseif RTN.current_shard_id == nil then
+				print("<RTN> Please target a non-player entity prior to resetting, such that the addon can determine the current shard id.")
+			else
+				print("<RTN> The reset button is on cooldown. Please note that a reset is not needed to receive new timers. If it is your intention to reset the data, please do a /reload and click the reset button again.")
+			end
+		end
+	);
+end
+
 
 function RTN:InitializeInterface()
 	self:SetSize(entity_name_width + entity_status_width + 2 * favorite_rares_width + 5 * frame_padding, shard_id_frame_height + 3 * frame_padding + #RTN.rare_ids * 12 + 8)
@@ -371,37 +456,7 @@ function RTN:InitializeInterface()
 	RTN:InitializeAnnounceIconFrame(self)
 	
 	-- Create a reset button.
-	self.reload_button = CreateFrame("Button", "RTN.reload_button", self)
-	self.reload_button:SetSize(10, 10)
-	self.reload_button:SetPoint("TOPRIGHT", self, -2 * frame_padding, -(frame_padding + 3))
-
-	self.reload_button.texture = self.reload_button:CreateTexture(nil, "OVERLAY")
-	self.reload_button.texture:SetTexture("Interface\\AddOns\\RareTrackerNazjatar\\Icons\\Reload.tga")
-	self.reload_button.texture:SetSize(10, 10)
-	self.reload_button.texture:SetPoint("CENTER", self.reload_button)
-	
-	self.reload_button:SetScript("OnClick", 
-		function()
-			if RTN.current_shard_id then
-				print("<RTN> Resetting current rare timers and requesting up-to-date data.")
-				RTN.is_alive = {}
-				RTN.current_health = {}
-				RTN.last_recorded_death = {}
-				RTN.recorded_entity_death_ids = {}
-				RTN.current_coordinates = {}
-				RTN.reported_spawn_uids = {}
-				RTN.reported_vignettes = {}
-				
-				-- Reset the cache.
-				RTNDB.previous_records[RTN.current_shard_id] = nil
-				
-				-- Re-register your arrival in the shard.
-				RTN:RegisterArrival(RTN.current_shard_id)
-			else
-				print("<RTN> Please target a non-player entity prior to reloading, such that the addon can determine the current shard id.")
-			end
-		end
-	);
+	InitializeReloadButton(self)	
 	
 	self:Hide()
 end
@@ -503,6 +558,19 @@ function RTN:IntializeMinimapCheckbox(parent_frame)
 	f:SetPoint("TOPLEFT", parent_frame, 0, -53)
 end
 
+function RTN:IntializeRaidCommunicationCheckbox(parent_frame)
+	local f = CreateFrame("CheckButton", "RTN.options_panel.raid_comms_checkbox", parent_frame, "ChatConfigCheckButtonTemplate");
+	getglobal(f:GetName() .. 'Text'):SetText(" Enable communication over part/raid channel");
+	f.tooltip = "Enable communication over party/raid channel, to support CRZ functionality while in a party or raid group.";
+	f:SetScript("OnClick", 
+		function()
+			RTNDB.enable_raid_communication = not RTNDB.enable_raid_communication
+		end
+	);
+	f:SetChecked(RTNDB.enable_raid_communication)
+	f:SetPoint("TOPLEFT", parent_frame, 0, -75)
+end
+
 function RTN:IntializeDebugCheckbox(parent_frame)
 	local f = CreateFrame("CheckButton", "RTN.options_panel.debug_checkbox", parent_frame, "ChatConfigCheckButtonTemplate");
 	getglobal(f:GetName() .. 'Text'):SetText(" Enable debug mode");
@@ -513,7 +581,7 @@ function RTN:IntializeDebugCheckbox(parent_frame)
 		end
 	);
 	f:SetChecked(RTNDB.debug_enabled)
-	f:SetPoint("TOPLEFT", parent_frame, 0, -75)
+	f:SetPoint("TOPLEFT", parent_frame, 0, -97)
 end
 
 function RTN:IntializeScaleSlider(parent_frame)
@@ -539,7 +607,7 @@ function RTN:IntializeScaleSlider(parent_frame)
 	f.label = f:CreateFontString(nil, "BORDER", "GameFontNormal")
 	f.label:SetJustifyH("LEFT")
 	f.label:SetText("Rare window scale "..string.format("(%.2f)", RTNDB.window_scale))
-	f.label:SetPoint("TOPLEFT", parent_frame, 0, -103)
+	f.label:SetPoint("TOPLEFT", parent_frame, 0, -125)
 	
 	f:SetPoint("TOPLEFT", f.label, 5, -15)
 end
@@ -555,6 +623,7 @@ function RTN:InitializeConfigMenu()
 
 	RTN.options_panel.sound_selector = RTN:IntializeSoundSelectionMenu(RTN.options_panel.frame)
 	RTN.options_panel.minimap_checkbox = RTN:IntializeMinimapCheckbox(RTN.options_panel.frame)
+	RTN.options_panel.raid_comms_checkbox = RTN:IntializeRaidCommunicationCheckbox(RTN.options_panel.frame)
 	RTN.options_panel.debug_checkbox = RTN:IntializeDebugCheckbox(RTN.options_panel.frame)
 	RTN.options_panel.scale_slider = RTN:IntializeScaleSlider(RTN.options_panel.frame)
 end

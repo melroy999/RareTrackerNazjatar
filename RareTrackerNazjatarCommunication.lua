@@ -21,20 +21,24 @@ local channel_name = nil
 -- The last time the health of an entity has been reported.
 -- Used for limiting the number of messages sent to the channel.
 RTN.last_health_report = {}
+RTN.last_health_report["CHANNEL"] = {}
+RTN.last_health_report["RAID"] = {}
 
 -- ####################################################################
 -- ##                        Helper Functions                        ##
 -- ####################################################################
 
 -- A time stamp at which the last message was sent in the rate limited message sender.
-RTN.last_message_sent = 0
+RTN.last_message_sent = {}
+RTN.last_message_sent["CHANNEL"] = 0
+RTN.last_message_sent["RAID"] = 0
 
 -- A function that acts as a rate limiter for channel messages.
-function RTN:SendRateLimitedAddonMessage(message, target, target_id)
+function RTN:SendRateLimitedAddonMessage(message, target, target_id, target_channel)
 	-- We only allow one message to be sent every ~4 seconds.
-	if GetServerTime() - RTN.last_message_sent > 4 then
+	if GetServerTime() - RTN.last_message_sent[target_channel] > 4 then
 		C_ChatInfo.SendAddonMessage("RTN", message, target, target_id)
-		RTN.last_message_sent = GetServerTime()
+		RTN.last_message_sent[target_channel] = GetServerTime()
 	end
 end
 
@@ -132,13 +136,28 @@ function RTN:RegisterArrival(shard_id)
 		)
 	else
 		C_ChatInfo.SendAddonMessage("RTN", "A-"..shard_id.."-"..RTN.version..":"..RTN.arrival_register_time, "CHANNEL", select(1, GetChannelName(RTN.channel_name)))
-	end	
+	end
+	
+	-- Register your arrival within the group.
+	if RTNDB.enable_raid_communication and (UnitInRaid("player") or UnitInParty("player")) then
+		C_ChatInfo.SendAddonMessage("RTN", "AP-"..shard_id.."-"..RTN.version..":"..RTN.arrival_register_time, "RAID", nil)
+	end
 end
 
--- Inform the others that you are still present.
+-- Inform the others that you are still present and give them your data.
 function RTN:RegisterPresenceWhisper(shard_id, target, time_stamp)
-	-- Announce to the others that you are still present on the shard.
-	C_ChatInfo.SendAddonMessage("RTN", "PW-"..shard_id.."-"..RTN.version..":"..RTN:GetCompressedSpawnData(time_stamp), "WHISPER", target)
+	if next(RTN.last_recorded_death) ~= nil then
+		-- Announce to the others that you are still present on the shard.
+		C_ChatInfo.SendAddonMessage("RTN", "PW-"..shard_id.."-"..RTN.version..":"..RTN:GetCompressedSpawnData(time_stamp), "WHISPER", target)
+	end
+end
+
+-- Inform the others that you are still present and give them your data through the group/raid channel.
+function RTN:RegisterPresenceGroup(shard_id, target, time_stamp)
+	if next(RTN.last_recorded_death) ~= nil then
+		-- Announce to the others that you are still present on the shard.
+		C_ChatInfo.SendAddonMessage("RTN", "PP-"..shard_id.."-"..RTN.version..":"..RTN:GetCompressedSpawnData(time_stamp).."-"..time_stamp, "RAID", nil)
+	end
 end
 
 --Leave the channel.
@@ -178,8 +197,18 @@ function RTN:AcknowledgeArrival(player, time_stamp)
 	end	
 end
 
+-- Acknowledge that the player has arrived and whisper your data table.
+function RTN:AcknowledgeArrivalGroup(player, time_stamp)
+	-- Notify the newly arrived user of your presence through a whisper.
+	if player_name ~= player then
+		if RTNDB.enable_raid_communication and (UnitInRaid("player") or UnitInParty("player")) then
+			RTN:RegisterPresenceGroup(RTN.current_shard_id, player, time_stamp)
+		end
+	end	
+end
+
 -- Acknowledge the welcome message of other players and parse and import their tables.
-function RTN:AcknowledgePresenceWhisper(player, spawn_data)
+function RTN:AcknowledgePresence(player, spawn_data)
 	RTN:DecompressSpawnData(spawn_data, RTN.arrival_register_time)
 end
 
@@ -202,6 +231,10 @@ function RTN:RegisterEntityDeath(shard_id, npc_id, spawn_uid)
 		
 		-- Send the death message.
 		C_ChatInfo.SendAddonMessage("RTN", "ED-"..shard_id.."-"..RTN.version..":"..npc_id.."-"..spawn_uid, "CHANNEL", select(1, GetChannelName(RTN.channel_name)))
+	
+		if RTNDB.enable_raid_communication and (UnitInRaid("player") or UnitInParty("player")) then
+			C_ChatInfo.SendAddonMessage("RTN", "EDP-"..shard_id.."-"..RTN.version..":"..npc_id.."-"..spawn_uid, "RAID", nil)
+		end
 	end
 end
 
@@ -217,8 +250,16 @@ function RTN:RegisterEntityAlive(shard_id, npc_id, spawn_uid, x, y)
 			RTN.current_coordinates[npc_id].x = x
 			RTN.current_coordinates[npc_id].y = y
 			C_ChatInfo.SendAddonMessage("RTN", "EA-"..shard_id.."-"..RTN.version..":"..npc_id.."-"..spawn_uid.."-"..x.."-"..y, "CHANNEL", select(1, GetChannelName(RTN.channel_name)))
+		
+			if RTNDB.enable_raid_communication and (UnitInRaid("player") or UnitInParty("player")) then
+				C_ChatInfo.SendAddonMessage("RTN", "EAP-"..shard_id.."-"..RTN.version..":"..npc_id.."-"..spawn_uid.."-"..x.."-"..y, "RAID", nil)
+			end
 		else
 			C_ChatInfo.SendAddonMessage("RTN", "EA-"..shard_id.."-"..RTN.version..":"..npc_id.."-"..spawn_uid.."--", "CHANNEL", select(1, GetChannelName(RTN.channel_name)))
+		
+			if RTNDB.enable_raid_communication and (UnitInRaid("player") or UnitInParty("player")) then
+				C_ChatInfo.SendAddonMessage("RTN", "EAP-"..shard_id.."-"..RTN.version..":"..npc_id.."-"..spawn_uid.."--", "RAID", nil)
+			end
 		end
 	end
 end
@@ -236,19 +277,35 @@ function RTN:RegisterEntityTarget(shard_id, npc_id, spawn_uid, percentage, x, y)
 	
 		-- Send the target message.
 		C_ChatInfo.SendAddonMessage("RTN", "ET-"..shard_id.."-"..RTN.version..":"..npc_id.."-"..spawn_uid.."-"..percentage.."-"..x.."-"..y, "CHANNEL", select(1, GetChannelName(RTN.channel_name)))
+		
+		if RTNDB.enable_raid_communication and (UnitInRaid("player") or UnitInParty("player")) then
+			C_ChatInfo.SendAddonMessage("RTN", "ETP-"..shard_id.."-"..RTN.version..":"..npc_id.."-"..spawn_uid.."-"..percentage.."-"..x.."-"..y, "RAID", nil)
+		end
 	end
 end
 
 -- Inform the others the health of a specific entity.
 function RTN:RegisterEntityHealth(shard_id, npc_id, spawn_uid, percentage)
-	if not RTN.last_health_report[npc_id] or GetServerTime() - RTN.last_health_report[npc_id] > 2 then
+	if not RTN.last_health_report["CHANNEL"][npc_id] or GetServerTime() - RTN.last_health_report["CHANNEL"][npc_id] > 2 then
 		-- Mark the entity as targeted and alive.
 		RTN.is_alive[npc_id] = GetServerTime()
 		RTN.current_health[npc_id] = percentage
 		RTN:UpdateStatus(npc_id)
 	
 		-- Send the health message, using a rate limited function.
-		RTN:SendRateLimitedAddonMessage("EH-"..shard_id.."-"..RTN.version..":"..npc_id.."-"..spawn_uid.."-"..percentage, "CHANNEL", select(1, GetChannelName(RTN.channel_name)))
+		RTN:SendRateLimitedAddonMessage("EH-"..shard_id.."-"..RTN.version..":"..npc_id.."-"..spawn_uid.."-"..percentage, "CHANNEL", select(1, GetChannelName(RTN.channel_name)), "CHANNEL")
+	end
+	
+	if RTNDB.enable_raid_communication and (UnitInRaid("player") or UnitInParty("player")) then
+		if not RTN.last_health_report["RAID"][npc_id] or GetServerTime() - RTN.last_health_report["RAID"][npc_id] > 2 then
+			-- Mark the entity as targeted and alive.
+			RTN.is_alive[npc_id] = GetServerTime()
+			RTN.current_health[npc_id] = percentage
+			RTN:UpdateStatus(npc_id)
+		
+			-- Send the health message, using a rate limited function.
+			RTN:SendRateLimitedAddonMessage("EHP-"..shard_id.."-"..RTN.version..":"..npc_id.."-"..spawn_uid.."-"..percentage, "RAID", nil, "RAID")
+		end
 	end
 end
 
@@ -316,7 +373,24 @@ function RTN:AcknowledgeEntityHealth(npc_id, spawn_uid, percentage)
 		RTN.last_recorded_death[npc_id] = nil
 		RTN.is_alive[npc_id] = GetServerTime()
 		RTN.current_health[npc_id] = percentage
-		RTN.last_health_report[npc_id] = GetServerTime()
+		RTN.last_health_report["CHANNEL"][npc_id] = GetServerTime()
+		RTN:UpdateStatus(npc_id)
+		
+		if RTNDB.favorite_rares[npc_id] and not RTN.reported_spawn_uids[spawn_uid] then
+			-- Play a sound file.
+			PlaySoundFile(RTNDB.selected_sound_number)
+			RTN.reported_spawn_uids[spawn_uid] = true
+		end
+	end
+end
+
+-- Acknowledge the health change of the entity and set the according flags.
+function RTN:AcknowledgeEntityHealthRaid(npc_id, spawn_uid, percentage)
+	if not RTN.recorded_entity_death_ids[spawn_uid..npc_id] then
+		RTN.last_recorded_death[npc_id] = nil
+		RTN.is_alive[npc_id] = GetServerTime()
+		RTN.current_health[npc_id] = percentage
+		RTN.last_health_report["RAID"][npc_id] = GetServerTime()
 		RTN:UpdateStatus(npc_id)
 		
 		if RTNDB.favorite_rares[npc_id] and not RTN.reported_spawn_uids[spawn_uid] then
@@ -340,7 +414,7 @@ function RTN:OnChatMessageReceived(player, prefix, shard_id, addon_version, payl
 		reported_version_mismatch = true
 	end
 	
-	--RTN:Debug(player, prefix, shard_id, addon_version, payload)
+	RTN:Debug(player, prefix, shard_id, addon_version, payload)
 	
 	-- Only allow communication if the users are on the same shards and if their addon version is equal.
 	if RTN.current_shard_id == shard_id and RTN.version == addon_version then
@@ -348,7 +422,7 @@ function RTN:OnChatMessageReceived(player, prefix, shard_id, addon_version, payl
 			time_stamp = tonumber(payload)
 			RTN:AcknowledgeArrival(player, time_stamp)
 		elseif prefix == "PW" then
-			RTN:AcknowledgePresenceWhisper(player, payload)
+			RTN:AcknowledgePresence(player, payload)
 		elseif prefix == "ED" then
 			local npcs_id_str, spawn_uid = strsplit("-", payload)
 			local npc_id = tonumber(npcs_id_str)
@@ -365,6 +439,33 @@ function RTN:OnChatMessageReceived(player, prefix, shard_id, addon_version, payl
 			local npc_id_str, spawn_uid, percentage_str = strsplit("-", payload)
 			local npc_id, percentage = tonumber(npc_id_str), tonumber(percentage_str)
 			RTN:AcknowledgeEntityHealth(npc_id, spawn_uid, percentage)
+		elseif RTNDB.enable_raid_communication then
+			if prefix == "AP" then
+				time_stamp = tonumber(payload)
+				RTN:AcknowledgeArrivalGroup(player, time_stamp)
+			elseif prefix == "PP" then
+				local payload, arrival_time_str = strsplit("-", payload)
+				local arrival_time = tonumber(arrival_time_str)
+				if RTN.arrival_register_time == arrival_time then
+					RTN:AcknowledgePresence(player, payload)	
+				end
+			elseif prefix == "EDP" then
+				local npcs_id_str, spawn_uid = strsplit("-", payload)
+				local npc_id = tonumber(npcs_id_str)
+				RTN:AcknowledgeEntityDeath(npc_id, spawn_uid)	
+			elseif prefix == "EAP" then
+				local npcs_id_str, spawn_uid, x_str, y_str = strsplit("-", payload)
+				local npc_id, x, y = tonumber(npcs_id_str), tonumber(x_str), tonumber(y_str)
+				RTN:AcknowledgeEntityAlive(npc_id, spawn_uid, x, y)
+			elseif prefix == "ETP" then
+				local npc_id_str, spawn_uid, percentage_str, x_str, y_str = strsplit("-", payload)
+				local npc_id, percentage, x, y = tonumber(npc_id_str), tonumber(percentage_str), tonumber(x_str), tonumber(y_str)
+				RTN:AcknowledgeEntityTarget(npc_id, spawn_uid, percentage, x, y)
+			elseif prefix == "EHP" then
+				local npc_id_str, spawn_uid, percentage_str = strsplit("-", payload)
+				local npc_id, percentage = tonumber(npc_id_str), tonumber(percentage_str)
+				RTN:AcknowledgeEntityHealthRaid(npc_id, spawn_uid, percentage)
+			end
 		end
 	end
 end

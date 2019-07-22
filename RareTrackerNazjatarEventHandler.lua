@@ -68,6 +68,25 @@ function RTN:CheckForShardChange(zone_uid)
 	return has_changed
 end
 
+function RTN:CheckForFutureMecharantula(npc_id)
+	-- Next, we check whether this is Mecharantula.
+		if npc_id == 151672 then
+		-- Check if the player has the time displacement buff.
+		for i=1, 40 do
+			spell_id = select(10, UnitBuff("player", i))
+			if spell_id == nil then 
+				break 
+			elseif spell_id == 296644 then
+				-- Chance the NPC id to a bogus id.
+				npc_id = 8821909
+				break
+			end
+		end
+	end
+
+	return npc_id
+end
+
 -- Called when a target changed event is fired.
 function RTN:OnTargetChanged(...)
 	if UnitGUID("target") ~= nil then
@@ -85,7 +104,10 @@ function RTN:OnTargetChanged(...)
 			end
 		end
 		
-		if RTN.rare_ids_set[npc_id] then
+		--A special check for the future variant for Mecharantula, which for some reason has a duplicate NPC id.
+		npc_id = RTN:CheckForFutureMecharantula(npc_id)
+		
+		if unittype == "Creature" and RTN.rare_ids_set[npc_id] then
 			-- Find the health of the entity.
 			local health = UnitHealth("target")
 			
@@ -127,6 +149,9 @@ function RTN:OnUnitHealth(unit)
 			end
 		end
 		
+		--A special check for the future variant for Mecharantula, which for some reason has a duplicate NPC id.
+		npc_id = RTN:CheckForFutureMecharantula(npc_id)
+		
 		if RTN.rare_ids_set[npc_id] then
 			-- Update the current health of the entity.
 			local percentage = RTN:GetTargetHealthPercentage()
@@ -161,18 +186,21 @@ function RTN:OnCombatLogEvent(...)
 	if not npc_id then return end
 	
 	-- Blacklist the entity.
-	if not RTNDB.banned_NPC_ids[npc_id] and bit.band(destFlags, flag_mask) > 0 then
+	if not RTNDB.banned_NPC_ids[npc_id] and bit.band(destFlags, flag_mask) > 0 and not RTN.rare_ids_set[npc_id] then
 		RTNDB.banned_NPC_ids[npc_id] = true
 	end
 	
 	-- We can always check for a shard change.
 	-- We only take fights between creatures, since they seem to be the only reliable option.
 	-- We exclude all pets and guardians, since they might have retained their old shard change.
-	if unittype == "Creature" and not RTN.banned_NPC_ids[npc_id] and not RTNDB.banned_NPC_ids[npc_id] then
+	if unittype == "Creature" and not RTN.banned_NPC_ids[npc_id] and not RTNDB.banned_NPC_ids[npc_id] and bit.band(destFlags, flag_mask) == 0 then
 		if RTN:CheckForShardChange(zone_uid) then
 			RTN:Debug("[OnCombatLogEvent]", sourceGUID, destGUID)
 		end
 	end	
+	
+	--A special check for the future variant for Mecharantula, which for some reason has a duplicate NPC id.
+	npc_id = RTN:CheckForFutureMecharantula(npc_id)
 		
 	if subevent == "UNIT_DIED" then
 		if RTN.rare_ids_set[npc_id] then
@@ -187,7 +215,7 @@ function RTN:OnVignetteMinimapUpdated(...)
 	vignetteGUID, onMinimap = ...
 	vignetteInfo = C_VignetteInfo.GetVignetteInfo(vignetteGUID)
 	vignetteLocation = C_VignetteInfo.GetVignettePosition(vignetteGUID, C_Map.GetBestMapForUnit("player"))
-	
+
 	if not vignetteInfo and RTN.current_shard_id ~= nil then
 		-- An entity we saw earlier might have died.
 		if RTN.reported_vignettes[vignetteGUID] then
@@ -211,6 +239,9 @@ function RTN:OnVignetteMinimapUpdated(...)
 					RTN:Debug("[OnVignette]", vignetteInfo.objectGUID)
 				end
 			end
+			
+			--A special check for the future variant for Mecharantula, which for some reason has a duplicate NPC id.
+			npc_id = RTN:CheckForFutureMecharantula(npc_id)
 			
 			if RTN.rare_ids_set[npc_id] and not RTN.reported_vignettes[vignetteGUID] then
 				RTN.reported_vignettes[vignetteGUID] = {npc_id, spawn_uid}
@@ -332,6 +363,10 @@ function RTN:OnAddonLoaded()
 		
 		if not RTNDB.window_scale then
 			RTNDB.window_scale = 1.0
+		end
+		
+		if RTNDB.enable_raid_communication == nil then
+			RTNDB.enable_raid_communication = true
 		end
 		
 		-- Initialize the configuration menu.
