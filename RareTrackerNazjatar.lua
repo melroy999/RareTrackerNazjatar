@@ -142,20 +142,26 @@ local RTN_LDB = LibStub("LibDataBroker-1.1"):NewDataObject("RTN_icon_object", {
 	type = "data source",
 	text = "RTN",
 	icon = "Interface\\Icons\\inv_gizmo_goblingtonkcontroller",
-	OnClick = function() 
-		if RTN.last_zone_id and RTN.target_zones[RTN.last_zone_id] then
-			if RTN:IsShown() then
-				RTN:Hide()
-				RTNDB.show_window = false
-			else
-				RTN:Show()
-				RTNDB.show_window = true
+	OnClick = function(self, button, down) 
+		if button == "LeftButton" then
+			if RTN.last_zone_id and RTN.target_zones[RTN.last_zone_id] then
+				if RTN:IsShown() then
+					RTN:Hide()
+					RTNDB.show_window = false
+				else
+					RTN:Show()
+					RTNDB.show_window = true
+				end
 			end
+		else 
+			InterfaceOptionsFrame_Show()
+			InterfaceOptionsFrame_OpenToCategory(RTN.options_panel)
 		end
 	end,
 	OnTooltipShow = function(tooltip)
 		tooltip:SetText("RTN")
-		tooltip:AddLine("Hide/Show RTN", 1, 1, 1)
+		tooltip:AddLine("Left-click: hide/show RTN", 1, 1, 1)
+		tooltip:AddLine("Right-click: show options", 1, 1, 1)
 		tooltip:Show()
 	end
 })
