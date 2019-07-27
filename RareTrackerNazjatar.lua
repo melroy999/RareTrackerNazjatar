@@ -1,11 +1,20 @@
-local _, data = ...
+-- Redefine often used functions locally.
+local CreateFrame = CreateFrame
+local InterfaceOptionsFrame_Show = InterfaceOptionsFrame_Show
+local InterfaceOptionsFrame_OpenToCategory = InterfaceOptionsFrame_OpenToCategory
+local LibStub = LibStub
+local UnitHealth = UnitHealth
+local UnitHealthMax = UnitHealthMax
+
+-- Redefine global variables locally.
+local UIParent = UIParent
+local C_ChatInfo = C_ChatInfo
 
 -- ####################################################################
 -- ##                              Core                              ##
 -- ####################################################################
 
-data.RTN = CreateFrame("Frame", "RTN", UIParent);
-local RTN = data.RTN
+local RTN = CreateFrame("Frame", "RTN", UIParent);
 
 -- The current data we have of the rares.
 RTN.is_alive = {}
@@ -15,9 +24,6 @@ RTN.current_coordinates = {}
 
 -- The zone_uid can be used to distinguish different shards of the zone.
 RTN.current_shard_id = nil
-
--- An override to hide the interface initially (development).
-RTN.hide_override = false
 
 -- A table containing all UID deaths reported by the player.
 RTN.recorded_entity_death_ids = {}
@@ -63,7 +69,7 @@ RTNDB.previous_records = {}
 -- ####################################################################
 
 -- Get the current health of the entity, rounded down to an integer.
-function RTN:GetTargetHealthPercentage()
+function RTN.GetTargetHealthPercentage()
 	-- Find the current and maximum health of the current target.
 	local max_hp = UnitHealthMax("target")
 	
@@ -72,11 +78,11 @@ function RTN:GetTargetHealthPercentage()
 		return -1
 	end
 	
-	return math.floor((100 * UnitHealth("target")) / UnitHealthMax("target")) 
+	return math.floor((100 * UnitHealth("target")) / UnitHealthMax("target"))
 end
 
 -- A print function used for debug purposes.
-function RTN:Debug(...)
+function RTN.Debug(...)
 	if RTNDB.debug_enabled then
 		print(...)
 	end
@@ -85,53 +91,53 @@ end
 -- Open and start the RTN interface and subscribe to all the required events.
 function RTN:StartInterface()
 	-- Reset the data, since we cannot guarantee its correctness.
-	RTN.is_alive = {}
-	RTN.current_health = {}
-	RTN.last_recorded_death = {}
-	RTN.current_coordinates = {}
-	RTN.reported_spawn_uids = {}
-	RTN.reported_vignettes = {}
-	RTN.waypoints = {}
-	RTN.current_shard_id = nil
-	RTN:UpdateShardNumber(nil)
-	RTN:UpdateAllDailyKillMarks()
+	self.is_alive = {}
+	self.current_health = {}
+	self.last_recorded_death = {}
+	self.current_coordinates = {}
+	self.reported_spawn_uids = {}
+	self.reported_vignettes = {}
+	self.waypoints = {}
+	self.current_shard_id = nil
+	self:UpdateShardNumber(nil)
+	self:UpdateAllDailyKillMarks()
 	
-	RTN:RegisterEvents()
+	self:RegisterEvents()
 	
 	if RTNDB.minimap_icon_enabled then
-		RTN.icon:Show("RTN_icon")
+		self.icon:Show("RTN_icon")
 	else
-		RTN.icon:Hide("RTN_icon")
+		self.icon:Hide("RTN_icon")
 	end
 	
 	if C_ChatInfo.RegisterAddonMessagePrefix("RTN") ~= true then
 		print("<RTN> Failed to register AddonPrefix 'RTN'. RTN will not function properly.")
 	end
 	
-	if RTNDB.show_window then 
-		RTN:Show()
+	if RTNDB.show_window then
+		self:Show()
 	end
 end
 
 -- Open and start the RTN interface and unsubscribe to all the required events.
 function RTN:CloseInterface()
 	-- Reset the data.
-	RTN.is_alive = {}
-	RTN.current_health = {}
-	RTN.last_recorded_death = {}
-	RTN.current_coordinates = {}
-	RTN.reported_spawn_uids = {}
-	RTN.reported_vignettes = {}
-	RTN.current_shard_id = nil
-	RTN:UpdateShardNumber(nil)
+	self.is_alive = {}
+	self.current_health = {}
+	self.last_recorded_death = {}
+	self.current_coordinates = {}
+	self.reported_spawn_uids = {}
+	self.reported_vignettes = {}
+	self.current_shard_id = nil
+	self:UpdateShardNumber(nil)
 	
 	-- Register the user's departure and disable event listeners.
-	RTN:RegisterDeparture(RTN.current_shard_id)
-	RTN:UnregisterEvents()
-	RTN.icon:Hide("RTN_icon")
+	self:RegisterDeparture(self.current_shard_id)
+	self:UnregisterEvents()
+	self.icon:Hide("RTN_icon")
 	
 	-- Hide the interface.
-	RTN:Hide()
+	self:Hide()
 end
 
 -- ####################################################################
@@ -142,7 +148,7 @@ local RTN_LDB = LibStub("LibDataBroker-1.1"):NewDataObject("RTN_icon_object", {
 	type = "data source",
 	text = "RTN",
 	icon = "Interface\\Icons\\inv_gizmo_goblingtonkcontroller",
-	OnClick = function(self, button, down) 
+	OnClick = function(_, button)
 		if button == "LeftButton" then
 			if RTN.last_zone_id and RTN.target_zones[RTN.last_zone_id] then
 				if RTN:IsShown() then
@@ -153,7 +159,7 @@ local RTN_LDB = LibStub("LibDataBroker-1.1"):NewDataObject("RTN_icon_object", {
 					RTNDB.show_window = true
 				end
 			end
-		else 
+		else
 			InterfaceOptionsFrame_Show()
 			InterfaceOptionsFrame_OpenToCategory(RTN.options_panel)
 		end
@@ -169,7 +175,7 @@ local RTN_LDB = LibStub("LibDataBroker-1.1"):NewDataObject("RTN_icon_object", {
 RTN.icon = LibStub("LibDBIcon-1.0")
 RTN.icon:Hide("RTN_icon")
 
-function RTN:RegisterMapIcon() 
+function RTN:RegisterMapIcon()
 	self.ace_db = LibStub("AceDB-3.0"):New("RTN_ace_db", {
 		profile = {
 			minimap = {

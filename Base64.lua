@@ -1,7 +1,3 @@
-local _, data = ...
-
-local RTN = data.RTN;
-
 -- The characters to be used in the base64 string.
 local digits = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
@@ -12,24 +8,24 @@ for i = 1, #digits do
 end
 
 -- Convert a decimal number to a base64 string.
-function RTN:toBase64(number)
-    local t = {}
+function RTN.toBase64(number)
+  local t = {}
 	
 	if number < 0 then
 		number = 0
 	end
 	
-    repeat
-        local d = (number % 64) + 1
-        number = floor(number / 64)
-        table.insert(t, 1, digits:sub(d, d))
-    until number == 0
-	
-    return table.concat(t, "")
+  repeat
+      local d = (number % 64) + 1
+      number = floor(number / 64)
+      table.insert(t, 1, digits:sub(d, d))
+  until number == 0
+
+  return table.concat(t, "")
 end
 
 -- Convert a decimal number to a base64 string.
-function RTN:toBase10(base64)
+function RTN.toBase10(base64)
 	local n = 0
 	local j = 1
 	

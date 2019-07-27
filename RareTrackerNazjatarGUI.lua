@@ -1,16 +1,35 @@
-local _, data = ...
+-- Redefine often used functions locally.
+local CreateFrame = CreateFrame
+local IsLeftControlKeyDown = IsLeftControlKeyDown
+local IsRightControlKeyDown = IsRightControlKeyDown
+local UnitInRaid = UnitInRaid
+local IsLeftAltKeyDown = IsLeftAltKeyDown
+local IsRightAltKeyDown = IsRightAltKeyDown
+local SendChatMessage = SendChatMessage
+local GetServerTime = GetServerTime
+local IsQuestFlaggedCompleted = IsQuestFlaggedCompleted
+local UIDropDownMenu_SetWidth = UIDropDownMenu_SetWidth
+local UIDropDownMenu_SetText = UIDropDownMenu_SetText
+local PlaySoundFile = PlaySoundFile
+local UIDropDownMenu_CreateInfo = UIDropDownMenu_CreateInfo
+local UIDropDownMenu_AddButton = UIDropDownMenu_AddButton
+local getglobal = getglobal
+local InterfaceOptions_AddCategory = InterfaceOptions_AddCategory
 
-local RTN = data.RTN
+-- Redefine global variables locally.
+local UIParent = UIParent
+local C_Map = C_Map
 
+-- Width and height variables used to customize the window.
 local entity_name_width = 208
-local entity_status_width = 50 
+local entity_status_width = 50
 local frame_padding = 4
 local favorite_rares_width = 10
-
 local shard_id_frame_height = 16
 
-background_opacity = 0.4
-front_opacity = 0.6
+-- Values for the opacity of the background and foreground.
+local background_opacity = 0.4
+local front_opacity = 0.6
 
 -- ####################################################################
 -- ##                              GUI                               ##
@@ -20,7 +39,11 @@ RTN.last_reload_time = 0
 
 function RTN:InitializeShardNumberFrame()
 	local f = CreateFrame("Frame", "RTN.shard_id_frame", self)
-	f:SetSize(entity_name_width + entity_status_width + 3 * frame_padding + 2 * favorite_rares_width, shard_id_frame_height)
+	f:SetSize(
+      entity_name_width + entity_status_width + 3 * frame_padding + 2 * favorite_rares_width,
+      shard_id_frame_height
+  )
+  
 	local texture = f:CreateTexture(nil, "BACKGROUND")
 	texture:SetColorTexture(0, 0, 0, front_opacity)
 	texture:SetAllPoints(f)
@@ -34,216 +57,274 @@ function RTN:InitializeShardNumberFrame()
 	return f
 end
 
-function RTN:InitializeFavoriteMarkerFrame()
-	local f = CreateFrame("Frame", "RTN.RTNDB.favorite_rares_frame", self)
-	f:SetSize(favorite_rares_width, self:GetHeight() - 2 * frame_padding - frame_padding - shard_id_frame_height)
+function RTN:CreateRareTableEntry(npc_id, parent_frame)
+	local f = CreateFrame("Frame", "RTN.entities_frame.entities["..npc_id.."]", parent_frame);
+	f:SetSize(entity_name_width + entity_status_width + 3 * frame_padding + 2 * favorite_rares_width, 12)
 	
-	f.checkboxes = {}
-	local height_offset = -(2 * frame_padding + shard_id_frame_height)
-	for i=1, #RTN.rare_ids do
-		local npc_id = RTN.rare_ids[i]
-		f.checkboxes[npc_id] = CreateFrame("CheckButton", "RTN.shard_id_frame.checkbox["..i.."]", f)
-		f.checkboxes[npc_id]:SetSize(10, 10)
-		local texture = f.checkboxes[npc_id]:CreateTexture(nil, "BACKGROUND")
-		texture:SetColorTexture(0, 0, 0, front_opacity)
-		texture:SetAllPoints(f.checkboxes[npc_id])
-		f.checkboxes[npc_id].texture = texture
-		f.checkboxes[npc_id]:SetPoint("TOPLEFT", 1, -(i - 1) * 12 - 5)
-		
-		-- Add an action listener.
-		f.checkboxes[npc_id]:SetScript("OnClick", 
-			function()
-				if RTNDB.favorite_rares[npc_id] then
-					RTNDB.favorite_rares[npc_id] = nil
-					f.checkboxes[npc_id].texture:SetColorTexture(0, 0, 0, front_opacity)
-				else
-					RTNDB.favorite_rares[npc_id] = true
-					f.checkboxes[npc_id].texture:SetColorTexture(0, 1, 0, 1)
-				end
+	-- Add the favorite button.
+	f.favorite = CreateFrame("CheckButton", "RTN.entities_frame.entities["..npc_id.."].favorite", f)
+	f.favorite:SetSize(10, 10)
+	local texture = f.favorite:CreateTexture(nil, "BACKGROUND")
+	texture:SetColorTexture(0, 0, 0, front_opacity)
+	texture:SetAllPoints(f.favorite)
+	f.favorite.texture = texture
+	f.favorite:SetPoint("TOPLEFT", 1, 0)
+	
+	-- Add an action listener.
+	f.favorite:SetScript("OnClick",
+		function()
+			if RTNDB.favorite_rares[npc_id] then
+				RTNDB.favorite_rares[npc_id] = nil
+				f.favorite.texture:SetColorTexture(0, 0, 0, front_opacity)
+			else
+				RTNDB.favorite_rares[npc_id] = true
+				f.favorite.texture:SetColorTexture(0, 1, 0, 1)
 			end
-		);
-	end
+		end
+	);
 	
-	f:SetPoint("TOPLEFT", self, frame_padding, height_offset)
-	return f
-end
-
-function RTN:InitializeAliveMarkerFrame()
-	local f = CreateFrame("Frame", "RTN.alive_marker_frame", self)
-	f:SetSize(favorite_rares_width, self:GetHeight() - 2 * frame_padding - frame_padding - shard_id_frame_height)
+	-- Add the announce/waypoint button.
+	f.announce = CreateFrame("Button", "RTN.entities_frame.entities["..npc_id.."].announce", f)
+	f.announce:SetSize(10, 10)
+	texture = f.announce:CreateTexture(nil, "BACKGROUND")
+	texture:SetColorTexture(0, 0, 0, front_opacity)
+	texture:SetAllPoints(f.announce)
+	f.announce.texture = texture
+	f.announce:SetPoint("TOPLEFT", frame_padding + favorite_rares_width + 1, 0)
+	f.announce:RegisterForClicks("LeftButtonDown", "RightButtonDown")
 	
-	f.checkboxes = {}
-	local height_offset = -(2 * frame_padding + shard_id_frame_height)
-	for i=1, #RTN.rare_ids do
-		local npc_id = RTN.rare_ids[i]
-		f.checkboxes[npc_id] = CreateFrame("Button", "RTN.shard_id_frame.checkbox["..i.."]", f)
-		
-		f.checkboxes[npc_id]:SetSize(10, 10)
-		local texture = f.checkboxes[npc_id]:CreateTexture(nil, "BACKGROUND")
-		texture:SetColorTexture(0, 0, 0, front_opacity)
-		texture:SetAllPoints(f.checkboxes[npc_id])
-		f.checkboxes[npc_id].texture = texture
-		f.checkboxes[npc_id]:SetPoint("TOPLEFT", 1, -(i - 1) * 12 - 5)
-		f.checkboxes[npc_id]:RegisterForClicks("LeftButtonDown", "RightButtonDown")
-		
-		-- Add an action listener.
-		f.checkboxes[npc_id]:SetScript("OnClick", 
-			function(self, button, down)
-				local name = RTN.rare_names[npc_id]
-				local health = RTN.current_health[npc_id]
-				local last_death = RTN.last_recorded_death[npc_id]
-				local loc = RTN.current_coordinates[npc_id]
+	-- Add an action listener.
+	f.announce:SetScript("OnClick",
+		function(_, button)
+			local name = self.rare_names[npc_id]
+			local health = self.current_health[npc_id]
+			local last_death = self.last_recorded_death[npc_id]
+			local loc = self.current_coordinates[npc_id]
+			
+			if button == "LeftButton" then
+				local target = "CHANNEL"
 				
-				if button == "LeftButton" then
-					-- First, determine the target of our message.
-					local target = nil
-					
-					if IsLeftControlKeyDown() or IsRightControlKeyDown() then
-						if UnitInRaid("player") then
-							target = "RAID"
-						else
-							target = "PARTY"
-						end
-					elseif IsLeftAltKeyDown() or IsRightAltKeyDown() then
-						target = "SAY"
+				if IsLeftControlKeyDown() or IsRightControlKeyDown() then
+					if UnitInRaid("player") then
+						target = "RAID"
 					else
-						target = "CHANNEL"
+						target = "PARTY"
 					end
-				
-					if RTN.current_health[npc_id] then
-						-- SendChatMessage
-						if loc then
-							SendChatMessage(string.format("<RTN> %s (%s%%) seen at ~(%.2f, %.2f)", name, health, loc.x, loc.y), target, nil, 1)
-						else 
-							SendChatMessage(string.format("<RTN> %s (%s%%) seen at ~(N/A)", name, health), target, nil, 1)
-						end
-					elseif RTN.last_recorded_death[npc_id] ~= nil then
-						if GetServerTime() - last_death < 60 then
-							SendChatMessage(string.format("<RTN> %s has died", name, GetServerTime() - last_death), target, nil, 1)
-						else
-							SendChatMessage(string.format("<RTN> %s was last seen ~%s minutes ago", name, math.floor((GetServerTime() - last_death) / 60)), target, nil, 1)
-						end
-					elseif RTN.is_alive[npc_id] then
-						if loc then
-							SendChatMessage(string.format("<RTN> %s seen alive, vignette at ~(%.2f, %.2f)", name, loc.x, loc.y), target, nil, 1)
-						else
-							SendChatMessage(string.format("<RTN> %s seen alive (vignette)", name), target, nil, 1)
-						end
+				elseif IsLeftAltKeyDown() or IsRightAltKeyDown() then
+					target = "SAY"
+				end
+			
+				if self.current_health[npc_id] then
+					-- SendChatMessage
+					if loc then
+						SendChatMessage(
+							string.format("<RTN> %s (%s%%) seen at ~(%.2f, %.2f)", name, health, loc.x, loc.y),
+							target,
+							nil,
+							1
+						)
+					else
+						SendChatMessage(
+							string.format("<RTN> %s (%s%%)", name, health),
+							target,
+							nil,
+							1
+						)
 					end
-				else
-					-- does the user have tom tom? if so, add a waypoint if it exists.
-					if TomTom ~= nil and loc then
-						RTN.waypoints[npc_id] = TomTom:AddWaypointToCurrentZone(loc.x, loc.y, name)
+				elseif self.last_recorded_death[npc_id] ~= nil then
+					if GetServerTime() - last_death < 60 then
+						SendChatMessage(
+							string.format("<RTN> %s has died", name, GetServerTime() - last_death),
+							target,
+							nil,
+							1
+						)
+					else
+						SendChatMessage(
+							string.format(
+								"<RTN> %s was last seen ~%s minutes ago",
+								name,
+								math.floor((GetServerTime() - last_death) / 60)
+							),
+							target,
+							nil,
+							1
+						)
+					end
+				elseif self.is_alive[npc_id] then
+					if loc then
+						SendChatMessage(
+							string.format("<RTN> %s seen alive, vignette at ~(%.2f, %.2f)", name, loc.x, loc.y),
+							target,
+							nil,
+							1
+						)
+					else
+						SendChatMessage(
+							string.format("<RTN> %s seen alive (combat log)", name),
+							target,
+							nil,
+							1
+						)
 					end
 				end
+			else
+				-- does the user have tom tom? if so, add a waypoint if it exists.
+				if TomTom ~= nil and loc then
+					self.waypoints[npc_id] = TomTom:AddWaypointToCurrentZone(loc.x, loc.y, name)
+				end
 			end
-		);
-	end
+		end
+	);
 	
-	f:SetPoint("TOPLEFT", self, 2 * frame_padding + favorite_rares_width, height_offset)
+	-- Add the entities name.
+	f.name = f:CreateFontString(nil, nil, "GameFontNormal")
+	f.name:SetJustifyH("LEFT")
+	f.name:SetJustifyV("TOP")
+	f.name:SetPoint("TOPLEFT", 2 * frame_padding + 2 * favorite_rares_width + 10, 0)
+	f.name:SetText(self.rare_names[npc_id])
+	
+	-- Add the timer/health entry.
+	f.status = f:CreateFontString(nil, nil, "GameFontNormal")
+	f.status:SetPoint("TOPRIGHT", 0, 0)
+	f.status:SetText("--")
+	f.status:SetJustifyH("MIDDLE")
+	f.status:SetJustifyV("TOP")
+	f.status:SetSize(entity_status_width, 12)
+	
 	return f
 end
 
-function RTN:InitializeInterfaceEntityNameFrame()
-	local f = CreateFrame("Frame", "RTN.entity_name_frame", self)
-	f:SetSize(entity_name_width, self:GetHeight() - 2 * frame_padding - frame_padding - shard_id_frame_height)
-	local texture = f:CreateTexture(nil, "BACKGROUND")
-	texture:SetColorTexture(0, 0, 0, front_opacity)
-	texture:SetAllPoints(f)
-	f.texture = texture
+function RTN:InitializeRareTableEntries(parent_frame)
+	-- Create a holder for all the entries.
+	parent_frame.entities = {}
 	
-	f.strings = {}
-	for i=1, #RTN.rare_ids do
-		local npc_id = RTN.rare_ids[i]
-		f.strings[npc_id] = f:CreateFontString(nil, nil, "GameFontNormal")
-		f.strings[npc_id]:SetJustifyH("LEFT")
-		f.strings[npc_id]:SetJustifyV("TOP")
-		f.strings[npc_id]:SetPoint("TOPLEFT", 10, -(i - 1) * 12 - 4)
-		f.strings[npc_id]:SetText(RTN.rare_names[npc_id])
+	-- Create a frame entry for all of the NPC ids, even the ignored ones.
+	-- The ordering and hiding of rares will be done later.
+	for i=1, #self.rare_ids do
+		local npc_id = self.rare_ids[i]
+		parent_frame.entities[npc_id] = self:CreateRareTableEntry(npc_id, parent_frame)
 	end
-	
-	f:SetPoint("TOPLEFT", self, 3 * frame_padding + 2 * favorite_rares_width, -(2 * frame_padding + shard_id_frame_height))
-	return f
 end
 
-function RTN:InitializeInterfaceEntityStatusFrame()
-	local f = CreateFrame("Frame", "RTN.entity_status_frame", self)
-	f:SetSize(entity_status_width, self:GetHeight() - 2 * frame_padding - frame_padding - shard_id_frame_height)
-	local texture = f:CreateTexture(nil, "BACKGROUND")
-	texture:SetColorTexture(0, 0, 0, front_opacity)
-	texture:SetAllPoints(f)
-	f.texture = texture
-	
-	f.strings = {}
-	for i=1, #RTN.rare_ids do
-		local npc_id = RTN.rare_ids[i]
-		f.strings[npc_id] = f:CreateFontString(nil, nil, "GameFontNormal")
-		f.strings[npc_id]:SetPoint("TOP", 0, -(i - 1) * 12 - 4)
-		f.strings[npc_id]:SetText("--")
-		f.strings[npc_id]:SetJustifyH("LEFT")
-		f.strings[npc_id]:SetJustifyV("TOP")
+function RTN:ReorganizeRareTableFrame(f)
+	-- How many ignored rares do we have?
+	local n = 0
+	for _, _ in pairs(RTNDB.ignore_rare) do
+		n = n + 1
 	end
 	
-	f:SetPoint("TOPRIGHT", self, -frame_padding, -(2 * frame_padding + shard_id_frame_height))
-	return f
+	-- Resize all the frames.
+	self:SetSize(
+		entity_name_width + entity_status_width + 2 * favorite_rares_width + 5 * frame_padding,
+		shard_id_frame_height + 3 * frame_padding + (#self.rare_ids - n) * 12 + 8
+	)
+	f:SetSize(
+		entity_name_width + entity_status_width + 2 * favorite_rares_width + 3 * frame_padding,
+		(#self.rare_ids - n) * 12 + 8
+	)
+	f.entity_name_backdrop:SetSize(entity_name_width, f:GetHeight())
+	f.entity_status_backdrop:SetSize(entity_status_width, f:GetHeight())
+	
+	-- Give all of the table entries their new positions.
+	local i = 1
+	RTNDB.rare_ordering:ForEach(
+		function(npc_id, _)
+			if RTNDB.ignore_rare[npc_id] then
+				f.entities[npc_id]:Hide()
+			else
+				f.entities[npc_id]:SetPoint("TOPLEFT", f, 0, -(i - 1) * 12 - 5)
+				f.entities[npc_id]:Show()
+				i = i + 1
+			end
+		end
+	)
+end
+
+function RTN:InitializeRareTableFrame(f)
+	-- First, add the frames for the backdrop and make sure that the hierarchy is created.
+	f:SetPoint("TOPLEFT", frame_padding, -(2 * frame_padding + shard_id_frame_height))
+	
+	f.entity_name_backdrop = CreateFrame("Frame", "RTN.entities_frame.entity_name_backdrop", f)
+	local texture = f.entity_name_backdrop:CreateTexture(nil, "BACKGROUND")
+	texture:SetColorTexture(0, 0, 0, front_opacity)
+	texture:SetAllPoints(f.entity_name_backdrop)
+	f.entity_name_backdrop.texture = texture
+	f.entity_name_backdrop:SetPoint("TOPLEFT", f, 2 * frame_padding + 2 * favorite_rares_width, 0)
+	
+	f.entity_status_backdrop = CreateFrame("Frame", "RTN.entities_frame.entity_status_backdrop", f)
+	texture = f.entity_status_backdrop:CreateTexture(nil, "BACKGROUND")
+	texture:SetColorTexture(0, 0, 0, front_opacity)
+	texture:SetAllPoints(f.entity_status_backdrop)
+	f.entity_status_backdrop.texture = texture
+	f.entity_status_backdrop:SetPoint("TOPRIGHT", f, 0, 0)
+	
+	-- Next, add all the rare entries to the table.
+	self:InitializeRareTableEntries(f)
+	
+	-- Arrange the table such that it fits the user's wishes. Resize the frames appropriately.
+	self:ReorganizeRareTableFrame(f)
 end
 
 function RTN:UpdateStatus(npc_id)
-	local status_text_frame = RTN.entity_status_frame.strings[npc_id]
-	local alive_status_frame = RTN.alive_marker_frame.checkboxes[npc_id]
+	local target = self.entities_frame.entities[npc_id]
 
-	if RTN.current_health[npc_id] then
-		status_text_frame:SetText(RTN.current_health[npc_id].."%")
-		alive_status_frame.texture:SetColorTexture(0, 1, 0, 1)
-	elseif RTN.last_recorded_death[npc_id] ~= nil then
-		local last_death = RTN.last_recorded_death[npc_id]
-		status_text_frame:SetText(math.floor((GetServerTime() - last_death) / 60).."m")
-		alive_status_frame.texture:SetColorTexture(0, 0, 1, front_opacity)
-	elseif RTN.is_alive[npc_id] then
-		status_text_frame:SetText("N/A")
-		alive_status_frame.texture:SetColorTexture(0, 1, 0, 1)
+	if self.current_health[npc_id] then
+		target.status:SetText(self.current_health[npc_id].."%")
+    target.status:SetFontObject("GameFontGreen")
+		target.announce.texture:SetColorTexture(0, 1, 0, 1)
+	elseif self.is_alive[npc_id] then
+		target.status:SetText("N/A")
+    target.status:SetFontObject("GameFontGreen")
+		target.announce.texture:SetColorTexture(0, 1, 0, 1)
+	elseif self.last_recorded_death[npc_id] ~= nil then
+		local last_death = self.last_recorded_death[npc_id]
+		target.status:SetText(math.floor((GetServerTime() - last_death) / 60).."m")
+    target.status:SetFontObject("GameFontNormal")
+		target.announce.texture:SetColorTexture(0, 0, 1, front_opacity)
 	else
-		status_text_frame:SetText("--")
-		alive_status_frame.texture:SetColorTexture(0, 0, 0, front_opacity)
+		target.status:SetText("--")
+    target.status:SetFontObject("GameFontNormal")
+		target.announce.texture:SetColorTexture(0, 0, 0, front_opacity)
 	end
 end
 
 function RTN:UpdateShardNumber(shard_number)
 	if shard_number then
-		RTN.shard_id_frame.status_text:SetText("Shard ID: "..(shard_number + 42))
+		self.shard_id_frame.status_text:SetText("Shard ID: "..(shard_number + 42))
 	else
-		RTN.shard_id_frame.status_text:SetText("Shard ID: Unknown")
+		self.shard_id_frame.status_text:SetText("Shard ID: Unknown")
 	end
 end
 
 function RTN:CorrectFavoriteMarks()
-	for i=1, #RTN.rare_ids do
-		local npc_id = RTN.rare_ids[i]
+	for i=1, #self.rare_ids do
+		local npc_id = self.rare_ids[i]
 		
 		if RTNDB.favorite_rares[npc_id] then
-			self.favorite_rares_frame.checkboxes[npc_id].texture:SetColorTexture(0, 1, 0, 1)
+			self.entities_frame.entities[npc_id].favorite.texture:SetColorTexture(0, 1, 0, 1)
 		else
-			self.favorite_rares_frame.checkboxes[npc_id].texture:SetColorTexture(0, 0, 0, front_opacity)
+			self.entities_frame.entities[npc_id].favorite.texture:SetColorTexture(0, 0, 0, front_opacity)
 		end
 	end
 end
 
 function RTN:UpdateDailyKillMark(npc_id)
-	if not RTN.completion_quest_ids[npc_id] then 
-		return 
+	if not self.completion_quest_ids[npc_id] then
+		return
 	end
 	
 	-- Multiple NPCs might share the same quest id.
-	local completion_quest_id = RTN.completion_quest_ids[npc_id]
-	local npc_ids = RTN.completion_quest_inverse[completion_quest_id]
+	local completion_quest_id = self.completion_quest_ids[npc_id]
+	local npc_ids = self.completion_quest_inverse[completion_quest_id]
 	
-	for key, npc_id in pairs(npc_ids) do
-		if RTN.completion_quest_ids[npc_id] and IsQuestFlaggedCompleted(RTN.completion_quest_ids[npc_id]) then
-			self.entity_name_frame.strings[npc_id]:SetText(RTN.rare_names[npc_id])
-			self.entity_name_frame.strings[npc_id]:SetFontObject("GameFontRed")
+	for _, target_npc_id in pairs(npc_ids) do
+		if self.completion_quest_ids[target_npc_id] and IsQuestFlaggedCompleted(self.completion_quest_ids[target_npc_id]) then
+			self.entities_frame.entities[target_npc_id].name:SetText(self.rare_names[target_npc_id])
+			self.entities_frame.entities[target_npc_id].name:SetFontObject("GameFontRed")
 		else
-			self.entity_name_frame.strings[npc_id]:SetText(RTN.rare_names[npc_id])
-			self.entity_name_frame.strings[npc_id]:SetFontObject("GameFontNormal")
+			self.entities_frame.entities[target_npc_id].name:SetText(self.rare_names[target_npc_id])
+			self.entities_frame.entities[target_npc_id].name:SetFontObject("GameFontNormal")
 		end
 	end
 end
@@ -255,7 +336,7 @@ function RTN:UpdateAllDailyKillMarks()
 	end
 end
 
-function RTN:InitializeFavoriteIconFrame(f)
+function RTN.InitializeFavoriteIconFrame(f)
 	f.favorite_icon = CreateFrame("Frame", "RTN.favorite_icon", f)
 	f.favorite_icon:SetSize(10, 10)
 	f.favorite_icon:SetPoint("TOPLEFT", f, frame_padding + 1, -(frame_padding + 3))
@@ -281,20 +362,20 @@ function RTN:InitializeFavoriteIconFrame(f)
 	f.favorite_icon.tooltip.text:SetPoint("TOPLEFT", f.favorite_icon.tooltip, 5, -3)
 	f.favorite_icon.tooltip.text:SetText("Click on the squares to add rares to your favorites.")
 	
-	f.favorite_icon:SetScript("OnEnter", 
+	f.favorite_icon:SetScript("OnEnter",
 		function(self)
 			self.tooltip:Show()
 		end
 	);
 	
-	f.favorite_icon:SetScript("OnLeave", 
+	f.favorite_icon:SetScript("OnLeave",
 		function(self)
 			self.tooltip:Hide()
 		end
 	);
 end
 
-function RTN:InitializeAnnounceIconFrame(f)
+function RTN.InitializeAnnounceIconFrame(f)
 	f.broadcast_icon = CreateFrame("Frame", "RTN.broadcast_icon", f)
 	f.broadcast_icon:SetSize(10, 10)
 	f.broadcast_icon:SetPoint("TOPLEFT", f, 2 * frame_padding + favorite_rares_width + 1, -(frame_padding + 3))
@@ -345,20 +426,20 @@ function RTN:InitializeAnnounceIconFrame(f)
 	f.broadcast_icon.tooltip.text5:SetPoint("TOPLEFT", f.broadcast_icon.tooltip, 5, -51)
 	f.broadcast_icon.tooltip.text5:SetText("Right click: set waypoint if available")
 	
-	f.broadcast_icon:SetScript("OnEnter", 
+	f.broadcast_icon:SetScript("OnEnter",
 		function(self)
 			self.tooltip:Show()
 		end
 	);
 	
-	f.broadcast_icon:SetScript("OnLeave", 
+	f.broadcast_icon:SetScript("OnLeave",
 		function(self)
 			self.tooltip:Hide()
 		end
 	);
 end
 
-function InitializeReloadButton(f)
+function RTN:InitializeReloadButton(f)
 	f.reload_button = CreateFrame("Button", "RTN.reload_button", f)
 	f.reload_button:SetSize(10, 10)
 	f.reload_button:SetPoint("TOPRIGHT", f, -2 * frame_padding, -(frame_padding + 3))
@@ -392,40 +473,43 @@ function InitializeReloadButton(f)
 	f.reload_button.tooltip.text2:SetText("Note: you do not need to press this button to receive new timers.")
 	
 	-- Hide and show the tooltip on mouseover.
-	f.reload_button:SetScript("OnEnter", 
-		function(self)
-			self.tooltip:Show()
+	f.reload_button:SetScript("OnEnter",
+		function(self2)
+			self2.tooltip:Show()
 		end
 	);
 	
-	f.reload_button:SetScript("OnLeave", 
-		function(self)
-			self.tooltip:Hide()
+	f.reload_button:SetScript("OnLeave",
+		function(self2)
+			self2.tooltip:Hide()
 		end
 	);
 	
-	f.reload_button:SetScript("OnClick", 
+	f.reload_button:SetScript("OnClick",
 		function()
-			if RTN.current_shard_id ~= nil and GetServerTime() - RTN.last_reload_time > 600 then
+			if self.current_shard_id ~= nil and GetServerTime() - self.last_reload_time > 600 then
 				print("<RTN> Resetting current rare timers and requesting up-to-date data.")
-				RTN.is_alive = {}
-				RTN.current_health = {}
-				RTN.last_recorded_death = {}
-				RTN.recorded_entity_death_ids = {}
-				RTN.current_coordinates = {}
-				RTN.reported_spawn_uids = {}
-				RTN.reported_vignettes = {}
-				RTN.last_reload_time = GetServerTime()
+				self.is_alive = {}
+				self.current_health = {}
+				self.last_recorded_death = {}
+				self.recorded_entity_death_ids = {}
+				self.current_coordinates = {}
+				self.reported_spawn_uids = {}
+				self.reported_vignettes = {}
+				self.last_reload_time = GetServerTime()
 				
 				-- Reset the cache.
-				RTNDB.previous_records[RTN.current_shard_id] = nil
+				RTNDB.previous_records[self.current_shard_id] = nil
 				
 				-- Re-register your arrival in the shard.
-				RTN:RegisterArrival(RTN.current_shard_id)
-			elseif RTN.current_shard_id == nil then
-				print("<RTN> Please target a non-player entity prior to resetting, such that the addon can determine the current shard id.")
+				RTN:RegisterArrival(self.current_shard_id)
+			elseif self.current_shard_id == nil then
+				print("<RTN> Please target a non-player entity prior to resetting, "..
+						"such that the addon can determine the current shard id.")
 			else
-				print("<RTN> The reset button is on cooldown. Please note that a reset is not needed to receive new timers. If it is your intention to reset the data, please do a /reload and click the reset button again.")
+				print("<RTN> The reset button is on cooldown. Please note that a reset is not needed "..
+					"to receive new timers. If it is your intention to reset the data, "..
+					"please do a /reload and click the reset button again.")
 			end
 		end
 	);
@@ -433,7 +517,11 @@ end
 
 
 function RTN:InitializeInterface()
-	self:SetSize(entity_name_width + entity_status_width + 2 * favorite_rares_width + 5 * frame_padding, shard_id_frame_height + 3 * frame_padding + #RTN.rare_ids * 12 + 8)
+	self:SetSize(
+		entity_name_width + entity_status_width + 2 * favorite_rares_width + 5 * frame_padding,
+		shard_id_frame_height + 3 * frame_padding + #self.rare_ids * 12 + 8
+	)
+	
 	local texture = self:CreateTexture(nil, "BACKGROUND")
 	texture:SetColorTexture(0, 0, 0, background_opacity)
 	texture:SetAllPoints(self)
@@ -442,10 +530,8 @@ function RTN:InitializeInterface()
 	
 	-- Create a sub-frame for the entity names.
 	self.shard_id_frame = self:InitializeShardNumberFrame()
-	self.favorite_rares_frame = self:InitializeFavoriteMarkerFrame()
-	self.alive_marker_frame = self:InitializeAliveMarkerFrame()
-	self.entity_name_frame = self:InitializeInterfaceEntityNameFrame()
-	self.entity_status_frame = self:InitializeInterfaceEntityStatusFrame()
+	self.entities_frame = CreateFrame("Frame", "RTN.entities_frame", self)
+	self:InitializeRareTableFrame(self.entities_frame)
 
 	self:SetMovable(true)
 	self:EnableMouse(true)
@@ -454,28 +540,19 @@ function RTN:InitializeInterface()
 	self:SetScript("OnDragStop", self.StopMovingOrSizing)
 	
 	-- Add icons for the favorite and broadcast columns.
-	RTN:InitializeFavoriteIconFrame(self)
-	RTN:InitializeAnnounceIconFrame(self)
+	self.InitializeFavoriteIconFrame(self)
+	self.InitializeAnnounceIconFrame(self)
 	
 	-- Create a reset button.
-	InitializeReloadButton(self)	
+	self:InitializeReloadButton(self)
+	self:SetClampedToScreen(true)
 	
 	self:Hide()
 end
 
-RTN:InitializeInterface()
-
 -- ####################################################################
 -- ##                       Options Interface                        ##
 -- ####################################################################
-
-
-
--- Options:
--- Select warning sound
--- Reset Favorites
--- Show/hide minimap icon
--- Enable debug prints
 
 -- The provided sound options.
 local sound_options = {}
@@ -506,18 +583,18 @@ for key, value in pairs(sound_options) do
 	sound_options_inverse[value] = key
 end
 
-function RTN:IntializeSoundSelectionMenu(parent_frame)
+function RTN.IntializeSoundSelectionMenu(parent_frame)
 	local f = CreateFrame("frame", "RTN.options_panel.sound_selection", parent_frame, "UIDropDownMenuTemplate")
 	UIDropDownMenu_SetWidth(f, 140)
 	UIDropDownMenu_SetText(f, sound_options_inverse[RTNDB.selected_sound_number])
 	
-	f.onClick = function(self, sound_id, arg2, checked)
+	f.onClick = function(_, sound_id, _, _)
 		RTNDB.selected_sound_number = sound_id
 		UIDropDownMenu_SetText(f, sound_options_inverse[RTNDB.selected_sound_number])
 		PlaySoundFile(RTNDB.selected_sound_number)
 	end
 	
-	f.initialize = function(self, level, menuList)
+	f.initialize = function()
 		local info = UIDropDownMenu_CreateInfo()
 		
 		for key, value in pairs(sound_options) do
@@ -541,18 +618,19 @@ function RTN:IntializeSoundSelectionMenu(parent_frame)
 end
 
 function RTN:IntializeMinimapCheckbox(parent_frame)
-	local f = CreateFrame("CheckButton", "RTN.options_panel.minimap_checkbox", parent_frame, "ChatConfigCheckButtonTemplate");
+	local f = CreateFrame(
+		"CheckButton", "RTN.options_panel.minimap_checkbox", parent_frame, "ChatConfigCheckButtonTemplate"
+	)
+	
 	getglobal(f:GetName() .. 'Text'):SetText(" Show minimap icon");
 	f.tooltip = "Show or hide the minimap button.";
-	f:SetScript("OnClick", 
+	f:SetScript("OnClick",
 		function()
-			local zone_id = C_Map.GetBestMapForUnit("player")
-		
 			RTNDB.minimap_icon_enabled = not RTNDB.minimap_icon_enabled
 			if not RTNDB.minimap_icon_enabled then
-				RTN.icon:Hide("RTN_icon")
+				self.icon:Hide("RTN_icon")
 			elseif RTN.target_zones[C_Map.GetBestMapForUnit("player")] then
-				RTN.icon:Show("RTN_icon")
+				self.icon:Show("RTN_icon")
 			end
 		end
 	);
@@ -560,11 +638,16 @@ function RTN:IntializeMinimapCheckbox(parent_frame)
 	f:SetPoint("TOPLEFT", parent_frame, 0, -53)
 end
 
-function RTN:IntializeRaidCommunicationCheckbox(parent_frame)
-	local f = CreateFrame("CheckButton", "RTN.options_panel.raid_comms_checkbox", parent_frame, "ChatConfigCheckButtonTemplate");
-	getglobal(f:GetName() .. 'Text'):SetText(" Enable communication over part/raid channel");
-	f.tooltip = "Enable communication over party/raid channel, to support CRZ functionality while in a party or raid group.";
-	f:SetScript("OnClick", 
+function RTN.IntializeRaidCommunicationCheckbox(parent_frame)
+	local f = CreateFrame(
+		"CheckButton", "RTN.options_panel.raid_comms_checkbox", parent_frame, "ChatConfigCheckButtonTemplate"
+	)
+	
+	getglobal(f:GetName() .. 'Text'):SetText(" Enable communication over part/raid channel")
+	f.tooltip = "Enable communication over party/raid channel, "..
+					"to support CRZ functionality while in a party or raid group."
+
+	f:SetScript("OnClick",
 		function()
 			RTNDB.enable_raid_communication = not RTNDB.enable_raid_communication
 		end
@@ -573,11 +656,11 @@ function RTN:IntializeRaidCommunicationCheckbox(parent_frame)
 	f:SetPoint("TOPLEFT", parent_frame, 0, -75)
 end
 
-function RTN:IntializeDebugCheckbox(parent_frame)
-	local f = CreateFrame("CheckButton", "RTN.options_panel.debug_checkbox", parent_frame, "ChatConfigCheckButtonTemplate");
+function RTN.IntializeDebugCheckbox(parent_frame)
+	local f = CreateFrame("CheckButton", "RTN.options_panel.debug_checkbox", parent_frame, "ChatConfigCheckButtonTemplate")
 	getglobal(f:GetName() .. 'Text'):SetText(" Enable debug mode");
 	f.tooltip = "Show or hide the minimap button.";
-	f:SetScript("OnClick", 
+	f:SetScript("OnClick",
 		function()
 			RTNDB.debug_enabled = not RTNDB.debug_enabled
 		end
@@ -592,16 +675,16 @@ function RTN:IntializeScaleSlider(parent_frame)
 	f:SetMinMaxValues(0.5, 2)
 	f:SetValueStep(0.05)
 	f:SetValue(RTNDB.window_scale)
-	RTN:SetScale(RTNDB.window_scale)
+	self:SetScale(RTNDB.window_scale)
 	f:Enable()
 	
-	f:SetScript("OnValueChanged", 
-		function(self, value)
+	f:SetScript("OnValueChanged",
+		function(self2, value)
 			-- Round the value to the nearest step value.
 			value = math.floor(value * 20) / 20
 		
 			RTNDB.window_scale = value
-			self.label:SetText("Rare window scale "..string.format("(%.2f)", RTNDB.window_scale))
+			self2.label:SetText("Rare window scale "..string.format("(%.2f)", RTNDB.window_scale))
 			RTN:SetScale(RTNDB.window_scale)
 		end
 	);
@@ -615,61 +698,259 @@ function RTN:IntializeScaleSlider(parent_frame)
 end
 
 function RTN:InitializeButtons(parent_frame)
-	parent_frame.reset_favorites_button = CreateFrame("Button", "RTN.options_panel.reset_favorites_button", parent_frame, 'UIPanelButtonTemplate')
+	parent_frame.reset_favorites_button = CreateFrame(
+		"Button", "RTN.options_panel.reset_favorites_button", parent_frame, 'UIPanelButtonTemplate'
+	)
+	
 	parent_frame.reset_favorites_button:SetText("Reset Favorites")
 	parent_frame.reset_favorites_button:SetSize(150, 25)
 	parent_frame.reset_favorites_button:SetPoint("TOPLEFT", parent_frame, 0, -175)
-	parent_frame.reset_favorites_button:SetScript("OnClick", 
+	parent_frame.reset_favorites_button:SetScript("OnClick",
 		function()
 			RTNDB.favorite_rares = {}
-			RTN:CorrectFavoriteMarks()
+			self:CorrectFavoriteMarks()
 		end
-	);
+	)
 	
-	parent_frame.reset_blacklist_button = CreateFrame("Button", "RTN.options_panel.reset_blacklist_button", parent_frame, 'UIPanelButtonTemplate')
+	parent_frame.reset_blacklist_button = CreateFrame(
+		"Button", "RTN.options_panel.reset_blacklist_button", parent_frame, 'UIPanelButtonTemplate'
+	)
+	
 	parent_frame.reset_blacklist_button:SetText("Reset Blacklist")
 	parent_frame.reset_blacklist_button:SetSize(150, 25)
 	parent_frame.reset_blacklist_button:SetPoint("TOPRIGHT", parent_frame.reset_favorites_button, 155, 0)
-	parent_frame.reset_blacklist_button:SetScript("OnClick", 
+	parent_frame.reset_blacklist_button:SetScript("OnClick",
 		function()
 			RTNDB.banned_NPC_ids = {}
 		end
-	);
+	)
+end
+
+function RTN:CreateRareSelectionEntry(npc_id, parent_frame, entry_data)
+	local f = CreateFrame("Frame", "RTN.options_panel.rare_selection.frame.list["..npc_id.."]", parent_frame);
+	f:SetSize(500, 12)
+	
+	f.enable = CreateFrame("Button", "RTN.options_panel.rare_selection.frame.list["..npc_id.."].enable", f);
+	f.enable:SetSize(10, 10)
+	local texture = f.enable:CreateTexture(nil, "BACKGROUND")
+	
+	if not RTNDB.ignore_rare[npc_id] then
+		texture:SetColorTexture(0, 1, 0, 1)
+	else
+		texture:SetColorTexture(1, 0, 0, 1)
+	end
+	
+	texture:SetAllPoints(f.enable)
+	f.enable.texture = texture
+	f.enable:SetPoint("TOPLEFT", f, 0, 0)
+	f.enable:SetScript("OnClick",
+		function()
+			if not RTNDB.ignore_rare[npc_id] then
+				if RTNDB.favorite_rares[npc_id] then
+					print("<RTN> Favorites cannot be hidden.")
+				else
+					RTNDB.ignore_rare[npc_id] = true
+					f.enable.texture:SetColorTexture(1, 0, 0, 1)
+					RTN:ReorganizeRareTableFrame(RTN.entities_frame)
+				end
+			else
+				RTNDB.ignore_rare[npc_id] = nil
+				f.enable.texture:SetColorTexture(0, 1, 0, 1)
+				RTN:ReorganizeRareTableFrame(RTN.entities_frame)
+			end
+		end
+	)
+	
+	f.up = CreateFrame("Button", "RTN.options_panel.rare_selection.frame.list["..npc_id.."].up", f);
+	f.up:SetSize(10, 10)
+	texture = f.up:CreateTexture(nil, "OVERLAY")
+	texture:SetTexture("Interface\\AddOns\\RareTrackerNazjatar\\Icons\\UpArrow.tga")
+	texture:SetSize(10, 10)
+	texture:SetPoint("CENTER", f.up)
+	texture:SetAllPoints(f.up)
+	
+	f.up.texture = texture
+	f.up:SetPoint("TOPLEFT", f, 13, 0)
+	
+	f.up:SetScript("OnClick",
+		function()
+      -- Here, we use the most up-to-date entry data, instead of the one passed as an argument.
+      local previous_entry = RTNDB.rare_ordering.__raw_data_table[npc_id].__previous
+			RTNDB.rare_ordering:SwapNeighbors(previous_entry, npc_id)
+			self.ReorderRareSelectionEntryItems(parent_frame)
+			self:ReorganizeRareTableFrame(self.entities_frame)
+		end
+	)
+		
+	if entry_data.__previous == nil then
+		f.up:Hide()
+	end
+	
+	f.down = CreateFrame("Button", "RTN.options_panel.rare_selection.frame.list["..npc_id.."].down", f);
+	f.down:SetSize(10, 10)
+	texture = f.down:CreateTexture(nil, "OVERLAY")
+	texture:SetTexture("Interface\\AddOns\\RareTrackerNazjatar\\Icons\\DownArrow.tga")
+	texture:SetSize(10, 10)
+	texture:SetPoint("CENTER", f.down)
+	texture:SetAllPoints(f.down)
+	f.down.texture = texture
+	f.down:SetPoint("TOPLEFT", f, 26, 0)
+	
+	f.down:SetScript("OnClick",
+		function()
+      -- Here, we use the most up-to-date entry data, instead of the one passed as an argument.
+      local next_entry = RTNDB.rare_ordering.__raw_data_table[npc_id].__next
+			RTNDB.rare_ordering:SwapNeighbors(npc_id, next_entry)
+			self.ReorderRareSelectionEntryItems(parent_frame)
+			self:ReorganizeRareTableFrame(self.entities_frame)
+		end
+	)
+
+	if entry_data.__next == nil then
+		f.down:Hide()
+	end
+	
+	f.text = f:CreateFontString(nil, "BORDER", "GameFontNormal")
+	f.text:SetJustifyH("LEFT")
+	f.text:SetText(self.rare_names[npc_id])
+	f.text:SetPoint("TOPLEFT", f, 42, 0)
+	
+	return f
+end
+
+function RTN.ReorderRareSelectionEntryItems(parent_frame)
+	local i = 1
+	RTNDB.rare_ordering:ForEach(
+		function(npc_id, entry_data)
+			local f = parent_frame.list_item[npc_id]
+			if entry_data.__previous == nil then
+				f.up:Hide()
+			else
+				f.up:Show()
+			end
+			
+			if entry_data.__next == nil then
+				f.down:Hide()
+			else
+				f.down:Show()
+			end
+				
+			f:SetPoint("TOPLEFT", parent_frame, 1, -(i - 1) * 12 - 5)
+			i = i + 1
+		end
+	)
+end
+
+function RTN:DisableAllRaresButton(parent_frame)
+  parent_frame.reset_all_button = CreateFrame(
+		"Button", "RTN.options_panel.rare_selection.reset_all_button", parent_frame, 'UIPanelButtonTemplate'
+	)
+	
+	parent_frame.reset_all_button:SetText("Disable All")
+	parent_frame.reset_all_button:SetSize(150, 25)
+	parent_frame.reset_all_button:SetPoint("TOPRIGHT", parent_frame, 0, 0)
+	parent_frame.reset_all_button:SetScript("OnClick",
+		function()
+			for i=1, #self.rare_ids do
+        local npc_id = self.rare_ids[i]
+        if RTNDB.favorite_rares[npc_id] ~= true then
+          RTNDB.ignore_rare[npc_id] = true
+          parent_frame.list_item[npc_id].enable.texture:SetColorTexture(1, 0, 0, 1)
+        end
+      end
+      self:ReorganizeRareTableFrame(self.entities_frame)
+		end
+	)
+end
+
+function RTN:EnableAllRaresButton(parent_frame)
+  parent_frame.enable_all_button = CreateFrame(
+		"Button", "RTN.options_panel.rare_selection.enable_all_button", parent_frame, 'UIPanelButtonTemplate'
+	)
+	
+	parent_frame.enable_all_button:SetText("Enable All")
+	parent_frame.enable_all_button:SetSize(150, 25)
+	parent_frame.enable_all_button:SetPoint("TOPRIGHT", parent_frame, 0, -25)
+	parent_frame.enable_all_button:SetScript("OnClick",
+		function()
+      for i=1, #self.rare_ids do
+        local npc_id = self.rare_ids[i]
+        RTNDB.ignore_rare[npc_id] = nil
+        parent_frame.list_item[npc_id].enable.texture:SetColorTexture(0, 1, 0, 1)
+      end
+      self:ReorganizeRareTableFrame(self.entities_frame)
+		end
+	)
+end
+
+function RTN:ResetRareOrderButton(parent_frame)
+  parent_frame.reset_order_button = CreateFrame(
+		"Button", "RTN.options_panel.rare_selection.reset_order_button", parent_frame, 'UIPanelButtonTemplate'
+	)
+	
+	parent_frame.reset_order_button:SetText("Reset Order")
+	parent_frame.reset_order_button:SetSize(150, 25)
+	parent_frame.reset_order_button:SetPoint("TOPRIGHT", parent_frame, 0, -50)
+	parent_frame.reset_order_button:SetScript("OnClick",
+		function()
+			RTNDB.rare_ordering:Clear()
+      for i=1, #self.rare_ids do
+        local npc_id = self.rare_ids[i]
+        RTNDB.rare_ordering:AddBack(npc_id)
+      end
+      self:ReorganizeRareTableFrame(self.entities_frame)
+      self.ReorderRareSelectionEntryItems(parent_frame)
+		end
+	)
+end
+
+function RTN:InitializeRareSelectionChildMenu(parent_frame)
+	parent_frame.rare_selection = CreateFrame("Frame", "RTN.options_panel.rare_selection", parent_frame)
+	parent_frame.rare_selection.name = "Rare ordering/selection"
+	parent_frame.rare_selection.parent = parent_frame.name
+	InterfaceOptions_AddCategory(parent_frame.rare_selection)
+	
+	parent_frame.rare_selection.frame = CreateFrame(
+      "Frame",
+      "RTN.options_panel.rare_selection.frame",
+      parent_frame.rare_selection
+  )
+  
+	parent_frame.rare_selection.frame:SetPoint("LEFT", parent_frame.rare_selection, 101, 0)
+	parent_frame.rare_selection.frame:SetSize(400, 500)
+	
+	local f = parent_frame.rare_selection.frame
+	local i = 1
+	f.list_item = {}
+	
+	RTNDB.rare_ordering:ForEach(
+		function(npc_id, entry_data)
+			f.list_item[npc_id] = self:CreateRareSelectionEntry(npc_id, f, entry_data)
+			f.list_item[npc_id]:SetPoint("TOPLEFT", f, 1, -(i - 1) * 12 - 5)
+			i = i + 1
+		end
+	)
+  
+  -- Add utility buttons.
+  RTN:DisableAllRaresButton(f)
+  RTN:EnableAllRaresButton(f)
+  RTN:ResetRareOrderButton(f)
 end
 
 function RTN:InitializeConfigMenu()
-	RTN.options_panel = CreateFrame("Frame", "RTN.options_panel", UIParent)
-	RTN.options_panel.name = "RareTrackerNazjatar"
-	InterfaceOptions_AddCategory(RTN.options_panel)
+	self.options_panel = CreateFrame("Frame", "RTN.options_panel", UIParent)
+	self.options_panel.name = "RareTrackerNazjatar"
+	InterfaceOptions_AddCategory(self.options_panel)
 	
-	RTN.options_panel.frame = CreateFrame("Frame", "RTN.options_panel.frame", RTN.options_panel)
-	RTN.options_panel.frame:SetPoint("TOPLEFT", RTN.options_panel, 11, -14)
-	RTN.options_panel.frame:SetSize(500, 500)
+	self.options_panel.frame = CreateFrame("Frame", "RTN.options_panel.frame", self.options_panel)
+	self.options_panel.frame:SetPoint("TOPLEFT", self.options_panel, 11, -14)
+	self.options_panel.frame:SetSize(500, 500)
 
-	RTN.options_panel.sound_selector = RTN:IntializeSoundSelectionMenu(RTN.options_panel.frame)
-	RTN.options_panel.minimap_checkbox = RTN:IntializeMinimapCheckbox(RTN.options_panel.frame)
-	RTN.options_panel.raid_comms_checkbox = RTN:IntializeRaidCommunicationCheckbox(RTN.options_panel.frame)
-	RTN.options_panel.debug_checkbox = RTN:IntializeDebugCheckbox(RTN.options_panel.frame)
-	RTN.options_panel.scale_slider = RTN:IntializeScaleSlider(RTN.options_panel.frame)
-	RTN:InitializeButtons(RTN.options_panel.frame)
+	self.options_panel.sound_selector = self.IntializeSoundSelectionMenu(self.options_panel.frame)
+	self.options_panel.minimap_checkbox = self:IntializeMinimapCheckbox(self.options_panel.frame)
+	self.options_panel.raid_comms_checkbox = self.IntializeRaidCommunicationCheckbox(self.options_panel.frame)
+	self.options_panel.debug_checkbox = self.IntializeDebugCheckbox(self.options_panel.frame)
+	self.options_panel.scale_slider = self:IntializeScaleSlider(self.options_panel.frame)
+	self:InitializeButtons(self.options_panel.frame)
+	self:InitializeRareSelectionChildMenu(self.options_panel)
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

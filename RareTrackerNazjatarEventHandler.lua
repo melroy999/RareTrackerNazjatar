@@ -1,6 +1,21 @@
-local _, data = ...
+-- Redefine often used functions locally.
+local UnitGUID = UnitGUID
+local strsplit = strsplit
+local UnitBuff = UnitBuff
+local UnitHealth = UnitHealth
+local CombatLogGetCurrentEventInfo = CombatLogGetCurrentEventInfo
+local C_VignetteInfo = C_VignetteInfo
+local GetServerTime = GetServerTime
+local LinkedSet = LinkedSet
+local CreateFrame = CreateFrame
+local GetChannelList = GetChannelList
 
-local RTN = data.RTN
+-- Redefine often used variables locally.
+local C_Map = C_Map
+local COMBATLOG_OBJECT_TYPE_GUARDIAN = COMBATLOG_OBJECT_TYPE_GUARDIAN
+local COMBATLOG_OBJECT_TYPE_PET = COMBATLOG_OBJECT_TYPE_PET
+local COMBATLOG_OBJECT_TYPE_OBJECT = COMBATLOG_OBJECT_TYPE_OBJECT
+
 
 -- ####################################################################
 -- ##                         Event Handlers                         ##
@@ -9,73 +24,73 @@ local RTN = data.RTN
 -- Listen to a given set of events and handle them accordingly.
 function RTN:OnEvent(event, ...)
 	if event == "PLAYER_TARGET_CHANGED" then
-		RTN:OnTargetChanged(...)
-	elseif event == "UNIT_HEALTH" and RTN.chat_frame_loaded then
-		RTN:OnUnitHealth(...)
-	elseif event == "COMBAT_LOG_EVENT_UNFILTERED" and RTN.chat_frame_loaded then
-		RTN:OnCombatLogEvent(...)
+		self:OnTargetChanged()
+	elseif event == "UNIT_HEALTH" and self.chat_frame_loaded then
+		self:OnUnitHealth(...)
+	elseif event == "COMBAT_LOG_EVENT_UNFILTERED" and self.chat_frame_loaded then
+		self:OnCombatLogEvent()
 	elseif event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED" then
-		RTN:OnZoneTransition()
+		self:OnZoneTransition()
 	elseif event == "CHAT_MSG_ADDON" then
-		RTN:OnChatMsgAddon(...)
-	elseif event == "VIGNETTE_MINIMAP_UPDATED" and RTN.chat_frame_loaded then
-		RTN:OnVignetteMinimapUpdated(...)
+		self:OnChatMsgAddon(...)
+	elseif event == "VIGNETTE_MINIMAP_UPDATED" and self.chat_frame_loaded then
+		self:OnVignetteMinimapUpdated(...)
 	elseif event == "ADDON_LOADED" then
-		RTN:OnAddonLoaded()
+		self:OnAddonLoaded()
 	elseif event == "PLAYER_LOGOUT" then
-		RTN:OnPlayerLogout()	
+		self:OnPlayerLogout()
 	end
 end
 
 -- Change from the original shard to the other.
 function RTN:ChangeShard(old_zone_uid, new_zone_uid)
 	-- Notify the users in your old shard that you have moved on to another shard.
-	RTN:RegisterDeparture(old_zone_uid)
+	self:RegisterDeparture(old_zone_uid)
 	
 	-- Reset all the data we have, since it has all become useless.
-	RTN.is_alive = {}
-	RTN.current_health = {}
-	RTN.last_recorded_death = {}
-	RTN.recorded_entity_death_ids = {}
-	RTN.current_coordinates = {}
-	RTN.reported_spawn_uids = {}
-	RTN.reported_vignettes = {}
+	self.is_alive = {}
+	self.current_health = {}
+	self.last_recorded_death = {}
+	self.recorded_entity_death_ids = {}
+	self.current_coordinates = {}
+	self.reported_spawn_uids = {}
+	self.reported_vignettes = {}
 	
 	-- Announce your arrival in the new shard.
-	RTN:RegisterArrival(new_zone_uid)
+	self:RegisterArrival(new_zone_uid)
 end
 
 -- Check whether the user has changed shards and proceed accordingly.
 function RTN:CheckForShardChange(zone_uid)
 	local has_changed = false
 
-	if RTN.current_shard_id ~= zone_uid and zone_uid ~= nil then
+	if self.current_shard_id ~= zone_uid and zone_uid ~= nil then
 		print("<RTN> Moving to shard", (zone_uid + 42)..".")
-		RTN:UpdateShardNumber(zone_uid)
+		self:UpdateShardNumber(zone_uid)
 		has_changed = true
 		
-		if RTN.current_shard_id == nil then
+		if self.current_shard_id == nil then
 			-- Register yourRTN for the given shard.
-			RTN:RegisterArrival(zone_uid)
+			self:RegisterArrival(zone_uid)
 		else
 			-- Move from one shard to another.
-			RTN:ChangeShard(RTN.current_shard_id, zone_uid)
+			self:ChangeShard(self.current_shard_id, zone_uid)
 		end
 		
-		RTN.current_shard_id = zone_uid
+		self.current_shard_id = zone_uid
 	end
 	
 	return has_changed
 end
 
-function RTN:CheckForFutureMecharantula(npc_id)
+function RTN.CheckForRedirectedRareIds(npc_id)
 	-- Next, we check whether this is Mecharantula.
-		if npc_id == 151672 then
+	if npc_id == 151672 then
 		-- Check if the player has the time displacement buff.
 		for i=1, 40 do
-			spell_id = select(10, UnitBuff("player", i))
-			if spell_id == nil then 
-				break 
+			local spell_id = select(10, UnitBuff("player", i))
+			if spell_id == nil then
+				break
 			elseif spell_id == 296644 then
 				-- Chance the NPC id to a bogus id.
 				npc_id = 8821909
@@ -88,40 +103,42 @@ function RTN:CheckForFutureMecharantula(npc_id)
 end
 
 -- Called when a target changed event is fired.
-function RTN:OnTargetChanged(...)
+function RTN:OnTargetChanged()
 	if UnitGUID("target") ~= nil then
 		-- Get information about the target.
-		local guid, name = UnitGUID("target"), UnitName("target")
-		local unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid = strsplit("-", guid);
+		local guid = UnitGUID("target")
+		
+		-- unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid
+		local unittype, _, _, _, zone_uid, npc_id, spawn_uid = strsplit("-", guid);
 		npc_id = tonumber(npc_id)
 	
 		-- It might occur that the NPC id is nil. Do not proceed in such a case.
 		if not npc_id then return end
 		
-		if not RTN.banned_NPC_ids[npc_id] and not RTNDB.banned_NPC_ids[npc_id] then
-			if RTN:CheckForShardChange(zone_uid) then
-				RTN:Debug("[Target]", guid)
+		if not self.banned_NPC_ids[npc_id] and not RTNDB.banned_NPC_ids[npc_id] then
+			if self:CheckForShardChange(zone_uid) then
+				self.Debug("[Target]", guid)
 			end
 		end
 		
 		--A special check for the future variant for Mecharantula, which for some reason has a duplicate NPC id.
-		npc_id = RTN:CheckForFutureMecharantula(npc_id)
+		npc_id = self.CheckForRedirectedRareIds(npc_id)
 		
-		if unittype == "Creature" and RTN.rare_ids_set[npc_id] then
+		if unittype == "Creature" and self.rare_ids_set[npc_id] then
 			-- Find the health of the entity.
 			local health = UnitHealth("target")
-			
+		
 			if health > 0 then
 				-- Get the current position of the player and the health of the entity.
 				local pos = C_Map.GetPlayerMapPosition(C_Map.GetBestMapForUnit("player"), "player")
 				local x, y = math.floor(pos.x * 10000 + 0.5) / 100, math.floor(pos.y * 10000 + 0.5) / 100
-				local percentage = RTN:GetTargetHealthPercentage()
+				local percentage = self.GetTargetHealthPercentage()
 				
 				-- Mark the entity as alive and report to your peers.
-				RTN:RegisterEntityTarget(RTN.current_shard_id, npc_id, spawn_uid, percentage, x, y)
-			else 
+				self:RegisterEntityTarget(self.current_shard_id, npc_id, spawn_uid, percentage, x, y)
+			else
 				-- Mark the entity has dead and report to your peers.
-				RTN:RegisterEntityDeath(RTN.current_shard_id, npc_id, spawn_uid)
+				self:RegisterEntityDeath(self.current_shard_id, npc_id, spawn_uid)
 			end
 		end
 	end
@@ -130,39 +147,41 @@ end
 -- Called when a unit health update event is fired.
 function RTN:OnUnitHealth(unit)
 	-- If the unit is not the target, skip.
-	if unit ~= "target" then 
-		return 
+	if unit ~= "target" then
+		return
 	end
 	
 	if UnitGUID("target") ~= nil then
 		-- Get information about the target.
-		local guid, name = UnitGUID("target"), UnitName("target")
-		local unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid = strsplit("-", guid);
+		local guid = UnitGUID("target")
+		
+		-- unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid
+		local _, _, _, _, zone_uid, npc_id, spawn_uid = strsplit("-", guid);
 		npc_id = tonumber(npc_id)
 	
 		-- It might occur that the NPC id is nil. Do not proceed in such a case.
 		if not npc_id then return end
 		
-		if not RTN.banned_NPC_ids[npc_id] and not RTNDB.banned_NPC_ids[npc_id] then
-			if RTN:CheckForShardChange(zone_uid) then
-				RTN:Debug("[OnUnitHealth]", guid)
+		if not self.banned_NPC_ids[npc_id] and not RTNDB.banned_NPC_ids[npc_id] then
+			if self:CheckForShardChange(zone_uid) then
+				self.Debug("[OnUnitHealth]", guid)
 			end
 		end
 		
 		--A special check for the future variant for Mecharantula, which for some reason has a duplicate NPC id.
-		npc_id = RTN:CheckForFutureMecharantula(npc_id)
+		npc_id = self.CheckForRedirectedRareIds(npc_id)
 		
-		if RTN.rare_ids_set[npc_id] then
+		if self.rare_ids_set[npc_id] then
 			-- Update the current health of the entity.
-			local percentage = RTN:GetTargetHealthPercentage()
+			local percentage = self.GetTargetHealthPercentage()
 			
 			-- Does the entity have any health left?
 			if percentage > 0 then
 				-- Report the health of the entity to your peers.
-				RTN:RegisterEntityHealth(RTN.current_shard_id, npc_id, spawn_uid, percentage)
+				self:RegisterEntityHealth(self.current_shard_id, npc_id, spawn_uid, percentage)
 			else
 				-- Mark the entity has dead and report to your peers.
-				RTN:RegisterEntityDeath(RTN.current_shard_id, npc_id, spawn_uid)
+				self:RegisterEntityDeath(self.current_shard_id, npc_id, spawn_uid)
 			end
 		end
 	end
@@ -176,78 +195,90 @@ local flag_mask = bit.bor(COMBATLOG_OBJECT_TYPE_GUARDIAN, COMBATLOG_OBJECT_TYPE_
 RTNDB.banned_NPC_ids = {}
 
 -- Called when a unit health update event is fired.
-function RTN:OnCombatLogEvent(...)
+function RTN:OnCombatLogEvent()
 	-- The event does not have a payload (8.0 change). Use CombatLogGetCurrentEventInfo() instead.
-	local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = CombatLogGetCurrentEventInfo()
-	local unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid = strsplit("-", destGUID);
+	-- timestamp, subevent, zero, sourceGUID, sourceName, sourceFlags, sourceRaidFlags,
+	-- destGUID, destName, destFlags, destRaidFlags
+	local _, subevent, _, sourceGUID, _, _, _, destGUID, _, destFlags, _ = CombatLogGetCurrentEventInfo()
+	
+	-- unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid
+	local unittype, _, _, _, zone_uid, npc_id, spawn_uid = strsplit("-", destGUID);
 	npc_id = tonumber(npc_id)
 	
 	-- It might occur that the NPC id is nil. Do not proceed in such a case.
 	if not npc_id then return end
 	
 	-- Blacklist the entity.
-	if not RTNDB.banned_NPC_ids[npc_id] and bit.band(destFlags, flag_mask) > 0 and not RTN.rare_ids_set[npc_id] then
+	if not RTNDB.banned_NPC_ids[npc_id] and bit.band(destFlags, flag_mask) > 0 and not self.rare_ids_set[npc_id] then
 		RTNDB.banned_NPC_ids[npc_id] = true
 	end
 	
 	-- We can always check for a shard change.
 	-- We only take fights between creatures, since they seem to be the only reliable option.
 	-- We exclude all pets and guardians, since they might have retained their old shard change.
-	if unittype == "Creature" and not RTN.banned_NPC_ids[npc_id] and not RTNDB.banned_NPC_ids[npc_id] and bit.band(destFlags, flag_mask) == 0 then
-		if RTN:CheckForShardChange(zone_uid) then
-			RTN:Debug("[OnCombatLogEvent]", sourceGUID, destGUID)
-		end
-	end	
-	
-	--A special check for the future variant for Mecharantula, which for some reason has a duplicate NPC id.
-	npc_id = RTN:CheckForFutureMecharantula(npc_id)
+	if unittype == "Creature" and not self.banned_NPC_ids[npc_id]
+		and not RTNDB.banned_NPC_ids[npc_id] and bit.band(destFlags, flag_mask) == 0 then
 		
-	if subevent == "UNIT_DIED" then
-		if RTN.rare_ids_set[npc_id] then
-			-- Mark the entity has dead and report to your peers.
-			RTN:RegisterEntityDeath(RTN.current_shard_id, npc_id, spawn_uid)
+		if self:CheckForShardChange(zone_uid) then
+			self.Debug("[OnCombatLogEvent]", sourceGUID, destGUID)
 		end
 	end
-end	
+	
+	--A special check for the future variant for Mecharantula, which for some reason has a duplicate NPC id.
+	npc_id = self.CheckForRedirectedRareIds(npc_id)
+		
+  if self.rare_ids_set[npc_id] then
+    if subevent == "UNIT_DIED" then
+			-- Mark the entity has dead and report to your peers.
+			self:RegisterEntityDeath(self.current_shard_id, npc_id, spawn_uid)
+    elseif subevent ~= "PARTY_KILL" then
+      -- Report the entity as alive to your peers, if it is not marked as alive already.
+      if self.is_alive[npc_id] == nil then
+        -- The combat log range is quite long, so no coordinates can be provided.
+				self:RegisterEntityAlive(self.current_shard_id, npc_id, spawn_uid, nil, nil)
+      end
+    end
+  end
+end
 
 -- Called when a vignette on the minimap is updated.
-function RTN:OnVignetteMinimapUpdated(...)
-	vignetteGUID, onMinimap = ...
-	vignetteInfo = C_VignetteInfo.GetVignetteInfo(vignetteGUID)
-	vignetteLocation = C_VignetteInfo.GetVignettePosition(vignetteGUID, C_Map.GetBestMapForUnit("player"))
+function RTN:OnVignetteMinimapUpdated(vignetteGUID, _)
+	local vignetteInfo = C_VignetteInfo.GetVignetteInfo(vignetteGUID)
+	local vignetteLocation = C_VignetteInfo.GetVignettePosition(vignetteGUID, C_Map.GetBestMapForUnit("player"))
 
-	if not vignetteInfo and RTN.current_shard_id ~= nil then
+	if not vignetteInfo and self.current_shard_id ~= nil then
 		-- An entity we saw earlier might have died.
-		if RTN.reported_vignettes[vignetteGUID] then
+		if self.reported_vignettes[vignetteGUID] then
 			-- Fetch the npc_id and spawn_uid from our cached data.
-			npc_id, spawn_uid = RTN.reported_vignettes[vignetteGUID][1], RTN.reported_vignettes[vignetteGUID][2]
+			local npc_id, spawn_uid = self.reported_vignettes[vignetteGUID][1], self.reported_vignettes[vignetteGUID][2]
 		
 			-- Mark the entity has dead and report to your peers.
-			RTN:RegisterEntityDeath(RTN.current_shard_id, npc_id, spawn_uid)
+			self:RegisterEntityDeath(self.current_shard_id, npc_id, spawn_uid)
 		end
 	elseif vignetteInfo then
 		-- Report the entity.
-		local unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid = strsplit("-", vignetteInfo.objectGUID);
-		local npc_id = tonumber(npc_id)
+		-- unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid
+		local unittype, _, _, _, zone_uid, npc_id, spawn_uid = strsplit("-", vignetteInfo.objectGUID);
+		npc_id = tonumber(npc_id)
 	
 		-- It might occur that the NPC id is nil. Do not proceed in such a case.
 		if not npc_id then return end
 		
 		if unittype == "Creature" then
-			if not RTN.banned_NPC_ids[npc_id] and not RTNDB.banned_NPC_ids[npc_id] then
-				if RTN:CheckForShardChange(zone_uid) then
-					RTN:Debug("[OnVignette]", vignetteInfo.objectGUID)
+			if not self.banned_NPC_ids[npc_id] and not RTNDB.banned_NPC_ids[npc_id] then
+				if self:CheckForShardChange(zone_uid) then
+					self.Debug("[OnVignette]", vignetteInfo.objectGUID)
 				end
 			end
 			
 			--A special check for the future variant for Mecharantula, which for some reason has a duplicate NPC id.
-			npc_id = RTN:CheckForFutureMecharantula(npc_id)
+			npc_id = self.CheckForRedirectedRareIds(npc_id)
 			
-			if RTN.rare_ids_set[npc_id] and not RTN.reported_vignettes[vignetteGUID] then
-				RTN.reported_vignettes[vignetteGUID] = {npc_id, spawn_uid}
+			if self.rare_ids_set[npc_id] and not self.reported_vignettes[vignetteGUID] then
+				self.reported_vignettes[vignetteGUID] = {npc_id, spawn_uid}
 				
 				local x, y = 100 * vignetteLocation.x, 100 * vignetteLocation.y
-				RTN:RegisterEntityAlive(RTN.current_shard_id, npc_id, spawn_uid, x, y)
+				self:RegisterEntityAlive(self.current_shard_id, npc_id, spawn_uid, x, y)
 			end
 		end
 	end
@@ -258,30 +289,30 @@ function RTN:OnZoneTransition()
 	-- The zone the player is in.
 	local zone_id = C_Map.GetBestMapForUnit("player")
 		
-	if RTN.target_zones[zone_id] and not RTN.target_zones[RTN.last_zone_id] then
-		RTN:StartInterface()	
-	elseif not RTN.target_zones[zone_id] then
-		RTN:RegisterDeparture(RTN.current_shard_id)
-		RTN:CloseInterface()
+	if self.target_zones[zone_id] and not self.target_zones[self.last_zone_id] then
+		self:StartInterface()
+	elseif not self.target_zones[zone_id] then
+		self:RegisterDeparture(self.current_shard_id)
+		self:CloseInterface()
 	end
 	
-	RTN.last_zone_id = zone_id
-end	
+	self.last_zone_id = zone_id
+end
 
 -- Called on every addon message received by the addon.
 function RTN:OnChatMsgAddon(...)
-	local addon_prefix, message, channel, sender = ...
+	local addon_prefix, message, _, sender = ...
 
 	if addon_prefix == "RTN" then
 		local header, payload = strsplit(":", message)
 		local prefix, shard_id, addon_version_str = strsplit("-", header)
 		local addon_version = tonumber(addon_version_str)
 
-		RTN:OnChatMessageReceived(sender, prefix, shard_id, addon_version, payload)
+		self:OnChatMessageReceived(sender, prefix, shard_id, addon_version, payload)
 	end
-end	
+end
 
--- A counter that tracks the time stamp on which the displayed data was updated last. 
+-- A counter that tracks the time stamp on which the displayed data was updated last.
 RTN.last_display_update = 0
 
 -- The last time the icon changed.
@@ -289,49 +320,46 @@ RTN.last_icon_change = 0
 
 -- Called on every addon message received by the addon.
 function RTN:OnUpdate()
-	if (RTN.last_display_update + 0.25 < GetServerTime()) then
-		for i=1, #RTN.rare_ids do
-			local npc_id = RTN.rare_ids[i]
+	if (self.last_display_update + 1 < GetTime()) then
+		for i=1, #self.rare_ids do
+			local npc_id = self.rare_ids[i]
 			
 			-- It might occur that the rare is marked as alive, but no health is known.
-			-- If 20 seconds pass without a health value, the alive tag will be reset.
-			if RTN.is_alive[npc_id] and not RTN.current_health[npc_id] and GetServerTime() - RTN.is_alive[npc_id] > 120 then
-				RTN.is_alive[npc_id] = nil
+			-- If two minutes pass without a health value, the alive tag will be reset.
+			if self.is_alive[npc_id] and not self.current_health[npc_id] and GetServerTime() - self.is_alive[npc_id] > 120 then
+				self.is_alive[npc_id] = nil
 			end
 			
 			-- It might occur that we have both a hp and health, but no changes.
 			-- If 2 minutes pass without a health value, the alive and health tags will be reset.
-			if RTN.is_alive[npc_id] and RTN.current_health[npc_id] and GetServerTime() - RTN.is_alive[npc_id] > 120 then
-				RTN.is_alive[npc_id] = nil
-				RTN.current_health[npc_id] = nil
+			if self.is_alive[npc_id] and self.current_health[npc_id] and GetServerTime() - self.is_alive[npc_id] > 120 then
+				self.is_alive[npc_id] = nil
+				self.current_health[npc_id] = nil
 			end
 			
-			RTN:UpdateStatus(npc_id)
+			self:UpdateStatus(npc_id)
 		end
 		
-		RTN.last_display_update = GetServerTime()
+		self.last_display_update = GetTime()
 	end
 	
-	if RTN.last_icon_change + 2 < GetServerTime() then
-		RTN.last_icon_change = GetServerTime()
+	if self.last_icon_change + 2 < GetTime() then
+		self.last_icon_change = GetTime()
 		
-		RTN.broadcast_icon.icon_state = not RTN.broadcast_icon.icon_state
+		self.broadcast_icon.icon_state = not self.broadcast_icon.icon_state
 		
-		if RTN.broadcast_icon.icon_state then
-			RTN.broadcast_icon.texture:SetTexture("Interface\\AddOns\\RareTrackerNazjatar\\Icons\\Broadcast.tga")
+		if self.broadcast_icon.icon_state then
+			self.broadcast_icon.texture:SetTexture("Interface\\AddOns\\RareTrackerNazjatar\\Icons\\Broadcast.tga")
 		else
-			RTN.broadcast_icon.texture:SetTexture("Interface\\AddOns\\RareTrackerNazjatar\\Icons\\Waypoint.tga")
+			self.broadcast_icon.texture:SetTexture("Interface\\AddOns\\RareTrackerNazjatar\\Icons\\Waypoint.tga")
 		end
 	end
-end	
+end
 
 -- Called when the addon loaded event is fired.
 function RTN:OnAddonLoaded()
 	-- OnAddonLoaded might be called multiple times. We only want it to do so once.
-	if not RTN.is_loaded then
-		self:CorrectFavoriteMarks()
-		self:RegisterMapIcon()
-		RTN.is_loaded = true
+	if not self.is_loaded then
 		
 		if RTNDB.show_window == nil then
 			RTNDB.show_window = true
@@ -359,6 +387,12 @@ function RTN:OnAddonLoaded()
 		
 		if not RTNDB.banned_NPC_ids then
 			RTNDB.banned_NPC_ids = {}
+		else
+			-- As a precaution, we remove all rares from the blacklist.
+			for i=1, #self.rare_ids do
+				local npc_id = self.rare_ids[i]
+				RTNDB.banned_NPC_ids[npc_id] = nil
+			end
 		end
 		
 		if not RTNDB.window_scale then
@@ -369,8 +403,28 @@ function RTN:OnAddonLoaded()
 			RTNDB.enable_raid_communication = true
 		end
 		
+		if not RTNDB.ignore_rare then
+			RTNDB.ignore_rare = {}
+		end
+		
+		if not RTNDB.rare_ordering then
+			RTNDB.rare_ordering = LinkedSet:New()
+			for i=1, #self.rare_ids do
+				local npc_id = self.rare_ids[i]
+				RTNDB.rare_ordering:AddBack(npc_id)
+			end
+		else
+			RTNDB.rare_ordering = LinkedSet:New(RTNDB.rare_ordering)
+		end
+		
+		-- Initialize the frame.
+		self:InitializeInterface()
+		self:CorrectFavoriteMarks()
+		
 		-- Initialize the configuration menu.
-		RTN:InitializeConfigMenu()
+		self:InitializeConfigMenu()
+		
+		self:RegisterMapIcon()
 		
 		-- Remove any data in the previous records that has expired.
 		for key, _ in pairs(RTNDB.previous_records) do
@@ -379,43 +433,54 @@ function RTN:OnAddonLoaded()
 				RTNDB.previous_records[key] = nil
 			end
 		end
+		
+		self.is_loaded = true
 	end
-end	
+end
 
 -- Called when the player logs out, such that we can save the current time table for later use.
 function RTN:OnPlayerLogout()
-	if RTN.current_shard_id then
+	if self.current_shard_id then
 		-- Save the records, such that we can use them after a reload.
-		RTNDB.previous_records[RTN.current_shard_id] = {}
-		RTNDB.previous_records[RTN.current_shard_id].time_stamp = GetServerTime()
-		RTNDB.previous_records[RTN.current_shard_id].time_table = RTN.last_recorded_death
+		RTNDB.previous_records[self.current_shard_id] = {}
+		RTNDB.previous_records[self.current_shard_id].time_stamp = GetServerTime()
+		RTNDB.previous_records[self.current_shard_id].time_table = self.last_recorded_death
 	end
 end
 
 -- Register to the events required for the addon to function properly.
 function RTN:RegisterEvents()
-	RTN:RegisterEvent("PLAYER_TARGET_CHANGED")
-	RTN:RegisterEvent("UNIT_HEALTH")
-	RTN:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-	RTN:RegisterEvent("CHAT_MSG_ADDON")
-	RTN:RegisterEvent("VIGNETTE_MINIMAP_UPDATED")
+	self:RegisterEvent("PLAYER_TARGET_CHANGED")
+	self:RegisterEvent("UNIT_HEALTH")
+	self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	self:RegisterEvent("CHAT_MSG_ADDON")
+	self:RegisterEvent("VIGNETTE_MINIMAP_UPDATED")
 end
 
 -- Unregister from the events, to disable the tracking functionality.
 function RTN:UnregisterEvents()
-	RTN:UnregisterEvent("PLAYER_TARGET_CHANGED")
-	RTN:UnregisterEvent("UNIT_HEALTH")
-	RTN:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-	RTN:UnregisterEvent("CHAT_MSG_ADDON")
-	RTN:UnregisterEvent("VIGNETTE_MINIMAP_UPDATED")
+	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
+	self:UnregisterEvent("UNIT_HEALTH")
+	self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	self:UnregisterEvent("CHAT_MSG_ADDON")
+	self:UnregisterEvent("VIGNETTE_MINIMAP_UPDATED")
 end
 
 -- Create a frame that handles the frame updates of the addon.
 RTN.updateHandler = CreateFrame("Frame", "RTN.updateHandler", RTN)
-RTN.updateHandler:SetScript("OnUpdate", RTN.OnUpdate)
+RTN.updateHandler:SetScript("OnUpdate",
+	function()
+		RTN:OnUpdate()
+	end
+)
 
 -- Register the event handling of the frame.
-RTN:SetScript("OnEvent", RTN.OnEvent)
+RTN:SetScript("OnEvent",
+	function(self, event, ...)
+		self:OnEvent(event, ...)
+	end
+)
+
 RTN:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 RTN:RegisterEvent("ZONE_CHANGED")
 RTN:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -431,13 +496,13 @@ RTN:RegisterEvent("PLAYER_LOGOUT")
 -- Thus, we block certain events until these chats have been loaded.
 RTN.chat_frame_loaded = false
 
-RTN.message_delay_frame = CreateFrame("Frame", "RTN.message_delay_frame", self)
-RTN.message_delay_frame.start_time = GetServerTime()
-RTN.message_delay_frame:SetScript("OnUpdate", 
+RTN.message_delay_frame = CreateFrame("Frame", "RTN.message_delay_frame", RTN)
+RTN.message_delay_frame.start_time = GetTime()
+RTN.message_delay_frame:SetScript("OnUpdate",
 	function(self)
-		if GetServerTime() - self.start_time > 0 then
+		if GetTime() - self.start_time > 0 then
 			if #{GetChannelList()} == 0 then
-				self.start_time = GetServerTime()
+				self.start_time = GetTime()
 			else
 				RTN.chat_frame_loaded = true
 				self:SetScript("OnUpdate", nil)
