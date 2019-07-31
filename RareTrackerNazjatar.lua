@@ -11,6 +11,13 @@ local UIParent = UIParent
 local C_ChatInfo = C_ChatInfo
 
 -- ####################################################################
+-- ##                      Localization Support                      ##
+-- ####################################################################
+
+-- Get an object we can use for the localization of the addon.
+local L = LibStub("AceLocale-3.0"):GetLocale("RareTrackerNazjatar", true)
+
+-- ####################################################################
 -- ##                              Core                              ##
 -- ####################################################################
 
@@ -111,7 +118,7 @@ function RTN:StartInterface()
 	end
 	
 	if C_ChatInfo.RegisterAddonMessagePrefix("RTN") ~= true then
-		print("<RTN> Failed to register AddonPrefix 'RTN'. RTN will not function properly.")
+		print(L["<RTN> Failed to register AddonPrefix 'RTN'. RTN will not function properly."])
 	end
 	
 	if RTNDB.show_window then
@@ -147,7 +154,7 @@ end
 local RTN_LDB = LibStub("LibDataBroker-1.1"):NewDataObject("RTN_icon_object", {
 	type = "data source",
 	text = "RTN",
-	icon = "Interface\\Icons\\inv_gizmo_goblingtonkcontroller",
+	icon = "Interface\\AddOns\\RareTrackerNazjatar\\Icons\\RareTrackerIcon",
 	OnClick = function(_, button)
 		if button == "LeftButton" then
 			if RTN.last_zone_id and RTN.target_zones[RTN.last_zone_id] then
@@ -166,8 +173,8 @@ local RTN_LDB = LibStub("LibDataBroker-1.1"):NewDataObject("RTN_icon_object", {
 	end,
 	OnTooltipShow = function(tooltip)
 		tooltip:SetText("RTN")
-		tooltip:AddLine("Left-click: hide/show RTN", 1, 1, 1)
-		tooltip:AddLine("Right-click: show options", 1, 1, 1)
+		tooltip:AddLine(L["Left-click: hide/show RTN"], 1, 1, 1)
+		tooltip:AddLine(L["Right-click: show options"], 1, 1, 1)
 		tooltip:Show()
 	end
 })

@@ -13,6 +13,14 @@ local UnitInParty = UnitInParty
 local GetNumDisplayChannels = GetNumDisplayChannels
 local LeaveChannelByName = LeaveChannelByName
 local PlaySoundFile = PlaySoundFile
+local IsQuestFlaggedCompleted = IsQuestFlaggedCompleted
+
+-- ####################################################################
+-- ##                      Localization Support                      ##
+-- ####################################################################
+
+-- Get an object we can use for the localization of the addon.
+local L = LibStub("AceLocale-3.0"):GetLocale("RareTrackerNazjatar", true)
 
 -- ####################################################################
 -- ##                         Communication                          ##
@@ -115,7 +123,7 @@ function RTN:RegisterArrival(shard_id)
 	-- Attempt to load previous data from our cache.
 	if RTNDB.previous_records[shard_id] then
 		if GetServerTime() - RTNDB.previous_records[shard_id].time_stamp < 900 then
-			print("<RTN> Restoring data from previous session in shard "..(shard_id + 42)..".")
+			print(L["<RTN> Restoring data from previous session in shard "]..(shard_id + 42)..".")
 			self.last_recorded_death = RTNDB.previous_records[shard_id].time_table
 		else
 			RTNDB.previous_records[shard_id] = nil
@@ -139,7 +147,7 @@ function RTN:RegisterArrival(shard_id)
 		
 		-- We want to avoid overwriting existing channel numbers. So delay the channel join.
 		self:DelayedExecution(1, function()
-				print("<RTN> Requesting rare kill data for shard "..(shard_id + 42)..".")
+				print(L["<RTN> Requesting rare kill data for shard "]..(shard_id + 42)..".")
 				C_ChatInfo.SendAddonMessage(
 					"RTN",
 					"A-"..shard_id.."-"..self.version..":"..self.arrival_register_time,
@@ -149,6 +157,7 @@ function RTN:RegisterArrival(shard_id)
 			end
 		)
 	else
+    print(L["<RTN> Requesting rare kill data for shard "]..(shard_id + 42)..".")
 		C_ChatInfo.SendAddonMessage(
 			"RTN",
 			"A-"..shard_id.."-"..self.version..":"..self.arrival_register_time,
@@ -422,8 +431,12 @@ function RTN:AcknowledgeEntityAlive(npc_id, spawn_uid, x, y)
 		
 		if RTNDB.favorite_rares[npc_id] and not self.reported_spawn_uids[spawn_uid] then
 			-- Play a sound file.
-			PlaySoundFile(RTNDB.selected_sound_number)
+            local completion_quest_id = self.completion_quest_ids[npc_id]
 			self.reported_spawn_uids[spawn_uid] = true
+            
+            if not IsQuestFlaggedCompleted(completion_quest_id) then
+                PlaySoundFile(RTNDB.selected_sound_number)
+            end
 		end
 	end
 end
@@ -441,8 +454,12 @@ function RTN:AcknowledgeEntityTarget(npc_id, spawn_uid, percentage, x, y)
 		
 		if RTNDB.favorite_rares[npc_id] and not self.reported_spawn_uids[spawn_uid] then
 			-- Play a sound file.
-			PlaySoundFile(RTNDB.selected_sound_number)
+            local completion_quest_id = self.completion_quest_ids[npc_id]
 			self.reported_spawn_uids[spawn_uid] = true
+            
+            if not IsQuestFlaggedCompleted(completion_quest_id) then
+                PlaySoundFile(RTNDB.selected_sound_number)
+            end
 		end
 	end
 end
@@ -458,8 +475,12 @@ function RTN:AcknowledgeEntityHealth(npc_id, spawn_uid, percentage)
 		
 		if RTNDB.favorite_rares[npc_id] and not self.reported_spawn_uids[spawn_uid] then
 			-- Play a sound file.
-			PlaySoundFile(RTNDB.selected_sound_number)
+            local completion_quest_id = self.completion_quest_ids[npc_id]
 			self.reported_spawn_uids[spawn_uid] = true
+            
+            if not IsQuestFlaggedCompleted(completion_quest_id) then
+                PlaySoundFile(RTNDB.selected_sound_number)
+            end
 		end
 	end
 end
@@ -475,8 +496,12 @@ function RTN:AcknowledgeEntityHealthRaid(npc_id, spawn_uid, percentage)
 		
 		if RTNDB.favorite_rares[npc_id] and not self.reported_spawn_uids[spawn_uid] then
 			-- Play a sound file.
-			PlaySoundFile(RTNDB.selected_sound_number)
+            local completion_quest_id = self.completion_quest_ids[npc_id]
 			self.reported_spawn_uids[spawn_uid] = true
+            
+            if not IsQuestFlaggedCompleted(completion_quest_id) then
+                PlaySoundFile(RTNDB.selected_sound_number)
+            end
 		end
 	end
 end
@@ -490,8 +515,8 @@ function RTN:OnChatMessageReceived(player, prefix, shard_id, addon_version, payl
 	-- The format of messages might change over time and as such, versioning is needed.
 	-- To ensure optimal performance, all users should use the latest version.
 	if not reported_version_mismatch and self.version < addon_version and addon_version ~= 9001 then
-		print("<RTN> Your version or RareTrackerNazjatar is outdated. "..
-			"Please update to the most recent version at the earliest convenience.")
+		print(L["<RTN> Your version or RareTrackerNazjatar is outdated. "..
+			"Please update to the most recent version at the earliest convenience."])
 		reported_version_mismatch = true
 	end
 	

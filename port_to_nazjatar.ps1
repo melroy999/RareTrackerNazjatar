@@ -4,3 +4,4 @@
 (gc "../RareTrackerMechagon/RareTrackerMechagonCommunication.lua") -creplace 'RTM', 'RTN' -creplace 'rtm', 'rtn' -creplace 'Mechagon', 'Nazjatar' | Out-File -encoding ASCII RareTrackerNazjatarCommunication.lua
 (gc "../RareTrackerMechagon/RareTrackerMechagonEventHandler.lua") -creplace 'RTM', 'RTN' -creplace 'rtm', 'rtn' -creplace 'Mechagon', 'Nazjatar' | Out-File -encoding ASCII RareTrackerNazjatarEventHandler.lua
 (gc "../RareTrackerMechagon/RareTrackerMechagonGUI.lua") -creplace 'RTM', 'RTN' -creplace 'rtm', 'rtn' -creplace 'Mechagon', 'Nazjatar' | Out-File -encoding ASCII RareTrackerNazjatarGUI.lua
+(gc "../RareTrackerMechagon/RareTrackerMechagonOptions.lua") -creplace 'RTM', 'RTN' -creplace 'rtm', 'rtn' -creplace 'Mechagon', 'Nazjatar' | Out-File -encoding ASCII RareTrackerNazjatarOptions.lua

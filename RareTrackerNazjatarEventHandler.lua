@@ -15,7 +15,14 @@ local C_Map = C_Map
 local COMBATLOG_OBJECT_TYPE_GUARDIAN = COMBATLOG_OBJECT_TYPE_GUARDIAN
 local COMBATLOG_OBJECT_TYPE_PET = COMBATLOG_OBJECT_TYPE_PET
 local COMBATLOG_OBJECT_TYPE_OBJECT = COMBATLOG_OBJECT_TYPE_OBJECT
+local UIParent = UIParent
 
+-- ####################################################################
+-- ##                      Localization Support                      ##
+-- ####################################################################
+
+-- Get an object we can use for the localization of the addon.
+local L = LibStub("AceLocale-3.0"):GetLocale("RareTrackerNazjatar", true)
 
 -- ####################################################################
 -- ##                         Event Handlers                         ##
@@ -65,7 +72,7 @@ function RTN:CheckForShardChange(zone_uid)
 	local has_changed = false
 
 	if self.current_shard_id ~= zone_uid and zone_uid ~= nil then
-		print("<RTN> Moving to shard", (zone_uid + 42)..".")
+		print(L["<RTN> Moving to shard "]..(zone_uid + 42)..".")
 		self:UpdateShardNumber(zone_uid)
 		has_changed = true
 		
@@ -246,16 +253,7 @@ function RTN:OnVignetteMinimapUpdated(vignetteGUID, _)
 	local vignetteInfo = C_VignetteInfo.GetVignetteInfo(vignetteGUID)
 	local vignetteLocation = C_VignetteInfo.GetVignettePosition(vignetteGUID, C_Map.GetBestMapForUnit("player"))
 
-	if not vignetteInfo and self.current_shard_id ~= nil then
-		-- An entity we saw earlier might have died.
-		if self.reported_vignettes[vignetteGUID] then
-			-- Fetch the npc_id and spawn_uid from our cached data.
-			local npc_id, spawn_uid = self.reported_vignettes[vignetteGUID][1], self.reported_vignettes[vignetteGUID][2]
-		
-			-- Mark the entity has dead and report to your peers.
-			self:RegisterEntityDeath(self.current_shard_id, npc_id, spawn_uid)
-		end
-	elseif vignetteInfo then
+	if vignetteInfo then
 		-- Report the entity.
 		-- unittype, zero, server_id, instance_id, zone_uid, npc_id, spawn_uid
 		local unittype, _, _, _, zone_uid, npc_id, spawn_uid = strsplit("-", vignetteInfo.objectGUID);
@@ -429,7 +427,7 @@ function RTN:OnAddonLoaded()
 		-- Remove any data in the previous records that has expired.
 		for key, _ in pairs(RTNDB.previous_records) do
 			if GetServerTime() - RTNDB.previous_records[key].time_stamp > 900 then
-				print("<RTN> Removing cached data for shard", (key + 42)..".")
+				print(L["<RTN> Removing cached data for shard "]..(key + 42)..".")
 				RTNDB.previous_records[key] = nil
 			end
 		end
@@ -488,6 +486,35 @@ RTN:RegisterEvent("ADDON_LOADED")
 RTN:RegisterEvent("PLAYER_LOGOUT")
 
 -- ####################################################################
+-- ##                      Daily Reset Handling                      ##
+-- ####################################################################
+
+local daily_reset_handling_frame = CreateFrame("Frame", "daily_reset_handling_frame", UIParent)
+
+-- Which timestamp was the last hour?
+local time_table = date("*t", GetServerTime())
+time_table.sec = 0
+time_table.min = 0
+
+-- Check when the next hourly reset is going to be, by adding 3600 to the previous hour timestamp.
+daily_reset_handling_frame.target_time = time(time_table) + 3600 + 60
+
+-- Add an OnUpdate checker.
+daily_reset_handling_frame:SetScript("OnUpdate",
+	function(self)
+		if GetServerTime() > self.target_time then
+			self.target_time = self.target_time + 3600
+            
+            if RTN.entities_frame ~= nil then
+                RTN:UpdateAllDailyKillMarks()
+                RTN.Debug("<RTN> Updating daily kill marks.")
+            end
+		end
+	end
+)
+daily_reset_handling_frame:Show()
+
+-- ####################################################################
 -- ##                       Channel Wait Frame                       ##
 -- ####################################################################
 
@@ -496,13 +523,13 @@ RTN:RegisterEvent("PLAYER_LOGOUT")
 -- Thus, we block certain events until these chats have been loaded.
 RTN.chat_frame_loaded = false
 
-RTN.message_delay_frame = CreateFrame("Frame", "RTN.message_delay_frame", RTN)
-RTN.message_delay_frame.start_time = GetTime()
-RTN.message_delay_frame:SetScript("OnUpdate",
+local message_delay_frame = CreateFrame("Frame", "RTN.message_delay_frame", UIParent)
+message_delay_frame.start_time = GetServerTime()
+message_delay_frame:SetScript("OnUpdate",
 	function(self)
-		if GetTime() - self.start_time > 0 then
+		if GetServerTime() - self.start_time > 0 then
 			if #{GetChannelList()} == 0 then
-				self.start_time = GetTime()
+				self.start_time = GetServerTime()
 			else
 				RTN.chat_frame_loaded = true
 				self:SetScript("OnUpdate", nil)
@@ -511,4 +538,4 @@ RTN.message_delay_frame:SetScript("OnUpdate",
 		end
 	end
 )
-RTN.message_delay_frame:Show()
+message_delay_frame:Show()
