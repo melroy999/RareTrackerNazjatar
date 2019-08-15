@@ -103,7 +103,7 @@ end
 
 -- A function that enables the delayed execution of a function.
 function RTN.DelayedExecution(delay, _function)
-	local frame = CreateFrame("Frame", "RTN.message_delay_frame", UIParent)
+	local frame = CreateFrame("Frame", nil, UIParent)
 	frame.start_time = GetTime()
 	frame:SetScript("OnUpdate",
 		function(self)
@@ -111,6 +111,7 @@ function RTN.DelayedExecution(delay, _function)
 				_function()
 				self:SetScript("OnUpdate", nil)
 				self:Hide()
+                self:SetParent(nil)
 			end
 		end
 	)
