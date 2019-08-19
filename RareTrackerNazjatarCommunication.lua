@@ -118,6 +118,19 @@ function RTN.DelayedExecution(delay, _function)
 	frame:Show()
 end
 
+-- Get the id of the general chat.
+function RTN.GetGeneralChatId()
+    local channel_list = {GetChannelList()}
+    
+    for i=2,#channel_list,3 do
+        if channel_list[i]:find(GENERAL) then
+            return channel_list[i - 1]
+        end
+    end
+    
+    return 0
+end
+
 -- ####################################################################
 -- ##            Shard Group Management Register Functions           ##
 -- ####################################################################
