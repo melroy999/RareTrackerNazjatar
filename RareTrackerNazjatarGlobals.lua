@@ -78,20 +78,6 @@ RTN.rare_ids = {
 
 RTN.rare_ids_set = Set(RTN.rare_ids)
 
--- "enUS"
--- "enGB"
--- "itIT"
--- "frFR"
--- "zhCN"
--- "zhTW"
--- "koKR"
--- "deDE"
--- "esES"
--- "esMX"
--- "ptPT"
--- "ptBR"
--- "ruRU"
-
 -- Get the rare names in the correct localization.
 RTN.localization = GetLocale()
 RTN.rare_names = {}
