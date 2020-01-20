@@ -443,7 +443,7 @@ end
 function RTN:InitializeReloadButton(f)
 	f.reload_button = CreateFrame("Button", "RTN.reload_button", f)
 	f.reload_button:SetSize(10, 10)
-	f.reload_button:SetPoint("TOPRIGHT", f, -2 * frame_padding, -(frame_padding + 3))
+	f.reload_button:SetPoint("TOPRIGHT", f, -3 * frame_padding - favorite_rares_width, -(frame_padding + 3))
 
 	f.reload_button.texture = f.reload_button:CreateTexture(nil, "OVERLAY")
 	f.reload_button.texture:SetTexture("Interface\\AddOns\\RareTrackerNazjatar\\Icons\\Reload.tga")
@@ -516,6 +516,24 @@ function RTN:InitializeReloadButton(f)
 	);
 end
 
+function RTN:InitializeCloseButton(f)
+	f.close_button = CreateFrame("Button", "RTN.close_button", f)
+	f.close_button:SetSize(10, 10)
+	f.close_button:SetPoint("TOPRIGHT", f, -2 * frame_padding, -(frame_padding + 3))
+
+	f.close_button.texture = f.close_button:CreateTexture(nil, "OVERLAY")
+	f.close_button.texture:SetTexture("Interface\\AddOns\\RareTrackerNazjatar\\Icons\\Cross.tga")
+	f.close_button.texture:SetSize(10, 10)
+	f.close_button.texture:SetPoint("CENTER", f.close_button)
+	
+	f.close_button:SetScript("OnClick",
+		function()
+            self:Hide()
+            RTNDB.show_window = false
+		end
+	);
+end
+
 
 function RTN:InitializeInterface()
 	self:SetSize(
@@ -546,6 +564,7 @@ function RTN:InitializeInterface()
 	
 	-- Create a reset button.
 	self:InitializeReloadButton(self)
+    self:InitializeCloseButton(self)
 	self:SetClampedToScreen(true)
 	
 	self:Hide()

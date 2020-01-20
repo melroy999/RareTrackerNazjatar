@@ -128,7 +128,6 @@ end
 function RTN.IntializeDebugCheckbox(parent_frame)
 	local f = CreateFrame("CheckButton", "RTN.options_panel.debug_checkbox", parent_frame, "ChatConfigCheckButtonTemplate")
 	getglobal(f:GetName() .. 'Text'):SetText(L[" Enable debug mode"]);
-	f.tooltip = L["Show or hide the minimap button."];
 	f:SetScript("OnClick",
 		function()
 			RTNDB.debug_enabled = not RTNDB.debug_enabled
