@@ -98,8 +98,16 @@ function RTN:IntializeMinimapCheckbox(parent_frame)
 			RTNDB.minimap_icon_enabled = not RTNDB.minimap_icon_enabled
 			if not RTNDB.minimap_icon_enabled then
 				self.icon:Hide("RTN_icon")
+                if Bazooka then
+                    Bazooka:disablePlugin(Bazooka.plugins["RTN"])
+                end
 			elseif RTN.target_zones[C_Map.GetBestMapForUnit("player")] then
 				self.icon:Show("RTN_icon")
+                if Bazooka then
+                    local plugin = Bazooka.plugins["RTN"]
+                    plugin.db.enabled = true
+                    plugin:applySettings()
+                end
 			end
 		end
 	);

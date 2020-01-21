@@ -358,7 +358,6 @@ end
 function RTN:OnAddonLoaded()
 	-- OnAddonLoaded might be called multiple times. We only want it to do so once.
 	if not self.is_loaded then
-		
 		if RTNDB.show_window == nil then
 			RTNDB.show_window = true
 		end

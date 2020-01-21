@@ -113,8 +113,16 @@ function RTN:StartInterface()
 	
 	if RTNDB.minimap_icon_enabled then
 		self.icon:Show("RTN_icon")
+        if Bazooka then
+            local plugin = Bazooka.plugins["RTN"]
+            plugin.db.enabled = true
+            plugin:applySettings()
+        end
 	else
 		self.icon:Hide("RTN_icon")
+        if Bazooka then
+            Bazooka:disablePlugin(Bazooka.plugins["RTN"])
+        end
 	end
 	
 	if C_ChatInfo.RegisterAddonMessagePrefix("RTN") ~= true then
@@ -142,6 +150,9 @@ function RTN:CloseInterface()
 	self:RegisterDeparture(self.current_shard_id)
 	self:UnregisterEvents()
 	self.icon:Hide("RTN_icon")
+    if Bazooka then
+        Bazooka:disablePlugin(Bazooka.plugins["RTN"])
+    end
 	
 	-- Hide the interface.
 	self:Hide()
@@ -151,7 +162,7 @@ end
 -- ##                          Minimap Icon                          ##
 -- ####################################################################
 
-local RTN_LDB = LibStub("LibDataBroker-1.1"):NewDataObject("RTN_icon_object", {
+local RTN_LDB = LibStub("LibDataBroker-1.1"):NewDataObject("RTN", {
 	type = "data source",
 	text = "RTN",
 	icon = "Interface\\AddOns\\RareTrackerNazjatar\\Icons\\RareTrackerIcon",
