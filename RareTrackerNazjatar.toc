@@ -2,25 +2,17 @@
 ## Title: RareTrackerNazjatar
 ## Notes: Track and coordinate rare spawn timers in Nazjatar.
 ## Author: Melroy
-## Version: 5.3.1
-##SavedVariables: RTNDB, RTN_ace_db
+## Version: 6.0.0
+##SavedVariables: RareTrackerNazjatarDB
+## Dependencies: RareTrackerCore
 
-libs\LibDBIcon-1.0\LibStub\LibStub.lua
-libs\LibDBIcon-1.0\LibDataBroker-1.1\LibDataBroker-1.1.lua
-libs\LibDBIcon-1.0\CallbackHandler-1.0\CallbackHandler-1.0.lua
-libs\LibDBIcon-1.0\LibDBIcon-1.0\LibDBIcon-1.0.lua
 libs\AceLocale-3.0\AceLocale-3.0.lua
+libs\AceDB-3.0\AceDB-3.0.xml
 
 Locales\enUS.lua
 Locales\zhCN.lua
 Locales\frFR.lua
 
 RareTrackerNazjatar.lua
-Base64.lua
-LinkedList.lua
 RareTrackerNazjatarGlobals.lua
-RareTrackerNazjatarGUI.lua
 RareTrackerNazjatarOptions.lua
-RareTrackerNazjatarCommunication.lua
-RareTrackerNazjatarEventHandler.lua
-RareTrackerNazjatarCommands.lua
