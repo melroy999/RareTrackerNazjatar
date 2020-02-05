@@ -3,7 +3,7 @@
 ## Notes: Track and coordinate rare spawn timers in Nazjatar.
 ## Author: Melroy
 ## Version: 6.0.1
-##SavedVariables: RareTrackerNazjatarDB
+##SavedVariables: RareTrackerNazjatarDB, RTNDB
 ## Dependencies: RareTrackerCore
 
 libs\AceLocale-3.0\AceLocale-3.0.lua

@@ -12,6 +12,25 @@ local L = LibStub("AceLocale-3.0"):GetLocale("RareTrackerNazjatar", true)
 function RTN:InitializeRareTrackerDatabase()
     self.defaults = RT.GetDefaultModuleDatabaseValues()
     
+    -- Copy over settings from the previous version, if possible.
+    if RTNDB then
+        -- Copy over the favorite rares, ignored rares and window scale.
+        if RTNDB.favorite_rares then
+            self.defaults.global.favorite_rares = RTNDB.favorite_rares
+        end
+        
+        if RTNDB.ignore_rare then
+            self.defaults.global.ignore_rares = RTNDB.ignore_rare
+        end
+        
+        if RTNDB.window_scale then
+            self.defaults.global.window_scale = RTNDB.window_scale
+        end
+        
+        -- Remove the RTUDB table.
+        RTNDB = nil
+    end
+    
     -- Load the database.
     self.db = LibStub("AceDB-3.0"):New("RareTrackerNazjatarDB", self.defaults, true)
 end
