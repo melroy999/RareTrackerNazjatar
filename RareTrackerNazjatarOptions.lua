@@ -44,7 +44,7 @@ function RTN:AddModuleOptions(options)
         args = {
             description = {
                 type = "description",
-                name = "RareTrackerNazjatar (v"..GetAddOnMetadata("RareTrackerNazjatar", "Version")..")",
+                name = "RareTrackerNazjatar (RTN)",
                 order = RT:GetOrder(),
                 fontSize = "large",
                 width = "full",
