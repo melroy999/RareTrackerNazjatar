@@ -599,3 +599,6 @@ RTN.completion_quest_inverse = {
     [56300] = {151719},
     [55603] = {150468},
 }
+
+-- A set of placeholder icons, which will be used if the rare location is not yet known.
+RTN.rare_coordinates = {}
