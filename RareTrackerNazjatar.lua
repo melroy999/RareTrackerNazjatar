@@ -53,4 +53,3 @@ RareTracker.RegisterRaresForModule({
         [150468] = {L[150468], 55603, nil}, -- "Vor'koth"
     }
 })
-RareTracker:MarkModuleRegistrationFinished("RareTrackerNazjatar")
