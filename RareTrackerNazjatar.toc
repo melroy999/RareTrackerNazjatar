@@ -2,7 +2,7 @@
 ## Title: RareTrackerNazjatar
 ## Notes: Track and coordinate rare spawn timers in Nazjatar.
 ## Author: Melroy
-## Version: 7.0.2
+## Version: 7.1.0
 ##SavedVariables: RareTrackerNazjatarDB
 ## Dependencies: RareTrackerCore
 
